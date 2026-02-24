@@ -1,0 +1,29 @@
+# Build output
+target/
+*.class
+*.jar
+*.war
+
+# IDE files
+.idea/
+*.iml
+.project
+.classpath
+.settings/
+.vscode/
+*.swp
+*~
+
+# Maven
+.mvn/repository/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+hazelcast-mcp-server.log
+
+# Config files with secrets
+hazelcast-mcp-local.yaml
