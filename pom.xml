@@ -59,6 +59,12 @@
             <artifactId>mcp</artifactId>
         </dependency>
 
+        <!-- MCP JSON mapper (Jackson2 implementation for MCP SDK 0.14+) -->
+        <dependency>
+            <groupId>io.modelcontextprotocol.sdk</groupId>
+            <artifactId>mcp-json-jackson2</artifactId>
+        </dependency>
+
         <!-- Hazelcast Java Client -->
         <dependency>
             <groupId>com.hazelcast</groupId>
@@ -85,7 +91,7 @@
             <version>${snakeyaml.version}</version>
         </dependency>
 
-        <!-- Embedded Jetty 12 for SSE/HTTP transport (MCP SDK 0.12.1 requires Servlet 6.1) -->
+        <!-- Embedded Jetty 12 for SSE/HTTP transport (MCP SDK requires Servlet 6.1) -->
         <dependency>
             <groupId>org.eclipse.jetty</groupId>
             <artifactId>jetty-server</artifactId>

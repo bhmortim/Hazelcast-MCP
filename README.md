@@ -340,7 +340,7 @@ Hazelcast Client MCP Server
 ## Technology Stack
 
 - **Language**: Java 17+
-- **MCP SDK**: [MCP Java SDK](https://github.com/modelcontextprotocol/java-sdk) v0.12.1
+- **MCP SDK**: [MCP Java SDK](https://github.com/modelcontextprotocol/java-sdk) v0.17.1
 - **Hazelcast Client**: Hazelcast 5.6+ (compatible with 5.5+)
 - **Transport**: stdio (local), SSE via embedded Jetty 12 (Jakarta Servlet 6.1)
 - **Build**: Maven, publishes fat JAR via `maven-shade-plugin`

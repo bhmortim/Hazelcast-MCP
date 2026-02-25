@@ -65,7 +65,7 @@ public class SqlTools {
                 new Tool("sql_execute",
                         "Execute a SQL query against Hazelcast and return results as JSON. "
                                 + "Supports SELECT, INSERT, UPDATE, DELETE. Use parameterized queries (?) to prevent injection.",
-                        schema),
+                        schema, null, null, null, null),
                 (exchange, args) -> {
                     String query = (String) args.get("query");
                     @SuppressWarnings("unchecked")

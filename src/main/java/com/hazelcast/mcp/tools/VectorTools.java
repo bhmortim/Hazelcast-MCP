@@ -73,7 +73,7 @@ public class VectorTools {
         return new McpServerFeatures.SyncToolSpecification(
                 new Tool("vector_search",
                         "Perform similarity search on a Hazelcast VectorCollection. Returns topK nearest neighbors with scores.",
-                        schema),
+                        schema, null, null, null, null),
                 (exchange, args) -> {
                     if (!vectorModuleAvailable) {
                         return unavailableResult();
@@ -110,7 +110,7 @@ public class VectorTools {
                 }
                 """;
         return new McpServerFeatures.SyncToolSpecification(
-                new Tool("vector_put", "Store a document with vector embedding in a Hazelcast VectorCollection", schema),
+                new Tool("vector_put", "Store a document with vector embedding in a Hazelcast VectorCollection", schema, null, null, null, null),
                 (exchange, args) -> {
                     if (!vectorModuleAvailable) {
                         return unavailableResult();
@@ -139,7 +139,7 @@ public class VectorTools {
                 }
                 """;
         return new McpServerFeatures.SyncToolSpecification(
-                new Tool("vector_get", "Retrieve a document by key from a Hazelcast VectorCollection", schema),
+                new Tool("vector_get", "Retrieve a document by key from a Hazelcast VectorCollection", schema, null, null, null, null),
                 (exchange, args) -> {
                     if (!vectorModuleAvailable) {
                         return unavailableResult();
@@ -165,7 +165,7 @@ public class VectorTools {
                 }
                 """;
         return new McpServerFeatures.SyncToolSpecification(
-                new Tool("vector_delete", "Remove a document by key from a Hazelcast VectorCollection", schema),
+                new Tool("vector_delete", "Remove a document by key from a Hazelcast VectorCollection", schema, null, null, null, null),
                 (exchange, args) -> {
                     if (!vectorModuleAvailable) {
                         return unavailableResult();

@@ -1,6 +1,5 @@
 package com.hazelcast.mcp.server;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.mcp.access.AccessController;
 import com.hazelcast.mcp.config.McpServerConfig;
@@ -10,6 +9,8 @@ import com.hazelcast.mcp.resources.ClusterResources;
 import com.hazelcast.mcp.tools.MapTools;
 import com.hazelcast.mcp.tools.SqlTools;
 import com.hazelcast.mcp.tools.VectorTools;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpSyncServer;
@@ -122,7 +123,7 @@ public class HazelcastMcpServer {
             List<McpServerFeatures.SyncResourceSpecification> resources,
             List<McpServerFeatures.SyncPromptSpecification> prompts) {
 
-        StdioServerTransportProvider transportProvider = new StdioServerTransportProvider(new ObjectMapper());
+        StdioServerTransportProvider transportProvider = new StdioServerTransportProvider(new JacksonMcpJsonMapper(new ObjectMapper()));
 
         mcpServer = McpServer.sync(transportProvider)
                 .serverInfo(config.getMcp().getServer().getName(),
@@ -150,7 +151,7 @@ public class HazelcastMcpServer {
         // Create SSE transport provider from MCP SDK
         HttpServletSseServerTransportProvider sseTransport =
                 HttpServletSseServerTransportProvider.builder()
-                        .objectMapper(new ObjectMapper())
+                        .jsonMapper(new JacksonMcpJsonMapper(new ObjectMapper()))
                         .messageEndpoint("/mcp/message")
                         .build();
 
