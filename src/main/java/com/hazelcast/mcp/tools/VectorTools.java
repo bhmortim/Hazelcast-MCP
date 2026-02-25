@@ -4,6 +4,8 @@ import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.mcp.access.AccessController;
 import com.hazelcast.mcp.serialization.JsonSerializer;
 import com.hazelcast.mcp.util.ErrorTranslator;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.modelcontextprotocol.json.jackson2.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
@@ -25,6 +27,7 @@ import java.util.*;
 public class VectorTools {
 
     private static final Logger logger = LoggerFactory.getLogger(VectorTools.class);
+    private static final JacksonMcpJsonMapper JSON_MAPPER = new JacksonMcpJsonMapper(new ObjectMapper());
 
     private final HazelcastInstance client;
     private final AccessController accessController;
@@ -71,9 +74,9 @@ public class VectorTools {
                 }
                 """;
         return new McpServerFeatures.SyncToolSpecification(
-                new Tool("vector_search",
-                        "Perform similarity search on a Hazelcast VectorCollection. Returns topK nearest neighbors with scores.",
-                        schema, null, null, null, null),
+                Tool.builder().name("vector_search")
+                        .description("Perform similarity search on a Hazelcast VectorCollection. Returns topK nearest neighbors with scores.")
+                        .inputSchema(JSON_MAPPER, schema).build(),
                 (exchange, request) -> {
                     Map<String, Object> args = request.arguments();
                     if (!vectorModuleAvailable) {
@@ -111,7 +114,7 @@ public class VectorTools {
                 }
                 """;
         return new McpServerFeatures.SyncToolSpecification(
-                new Tool("vector_put", "Store a document with vector embedding in a Hazelcast VectorCollection", schema, null, null, null, null),
+                Tool.builder().name("vector_put").description("Store a document with vector embedding in a Hazelcast VectorCollection").inputSchema(JSON_MAPPER, schema).build(),
                 (exchange, request) -> {
                     Map<String, Object> args = request.arguments();
                     if (!vectorModuleAvailable) {
@@ -141,7 +144,7 @@ public class VectorTools {
                 }
                 """;
         return new McpServerFeatures.SyncToolSpecification(
-                new Tool("vector_get", "Retrieve a document by key from a Hazelcast VectorCollection", schema, null, null, null, null),
+                Tool.builder().name("vector_get").description("Retrieve a document by key from a Hazelcast VectorCollection").inputSchema(JSON_MAPPER, schema).build(),
                 (exchange, request) -> {
                     Map<String, Object> args = request.arguments();
                     if (!vectorModuleAvailable) {
@@ -168,7 +171,7 @@ public class VectorTools {
                 }
                 """;
         return new McpServerFeatures.SyncToolSpecification(
-                new Tool("vector_delete", "Remove a document by key from a Hazelcast VectorCollection", schema, null, null, null, null),
+                Tool.builder().name("vector_delete").description("Remove a document by key from a Hazelcast VectorCollection").inputSchema(JSON_MAPPER, schema).build(),
                 (exchange, request) -> {
                     Map<String, Object> args = request.arguments();
                     if (!vectorModuleAvailable) {

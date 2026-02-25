@@ -6,6 +6,8 @@ import com.hazelcast.map.IMap;
 import com.hazelcast.mcp.access.AccessController;
 import com.hazelcast.mcp.serialization.JsonSerializer;
 import com.hazelcast.mcp.util.ErrorTranslator;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.modelcontextprotocol.json.jackson2.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
@@ -25,6 +27,7 @@ import java.util.stream.Collectors;
 public class MapTools {
 
     private static final Logger logger = LoggerFactory.getLogger(MapTools.class);
+    private static final JacksonMcpJsonMapper JSON_MAPPER = new JacksonMcpJsonMapper(new ObjectMapper());
 
     private final HazelcastInstance client;
     private final AccessController accessController;
@@ -62,7 +65,7 @@ public class MapTools {
                 }
                 """;
         return new McpServerFeatures.SyncToolSpecification(
-                new Tool("map_get", "Retrieve a value from a Hazelcast Map by key", schema, null, null, null, null),
+                Tool.builder().name("map_get").description("Retrieve a value from a Hazelcast Map by key").inputSchema(JSON_MAPPER, schema).build(),
                 (exchange, request) -> {
                     Map<String, Object> args = request.arguments();
                     String mapName = (String) args.get("mapName");
@@ -102,7 +105,7 @@ public class MapTools {
                 }
                 """;
         return new McpServerFeatures.SyncToolSpecification(
-                new Tool("map_put", "Store a key-value pair in a Hazelcast Map", schema, null, null, null, null),
+                Tool.builder().name("map_put").description("Store a key-value pair in a Hazelcast Map").inputSchema(JSON_MAPPER, schema).build(),
                 (exchange, request) -> {
                     Map<String, Object> args = request.arguments();
                     String mapName = (String) args.get("mapName");
@@ -145,7 +148,7 @@ public class MapTools {
                 }
                 """;
         return new McpServerFeatures.SyncToolSpecification(
-                new Tool("map_delete", "Remove an entry from a Hazelcast Map by key", schema, null, null, null, null),
+                Tool.builder().name("map_delete").description("Remove an entry from a Hazelcast Map by key").inputSchema(JSON_MAPPER, schema).build(),
                 (exchange, request) -> {
                     Map<String, Object> args = request.arguments();
                     String mapName = (String) args.get("mapName");
@@ -184,7 +187,7 @@ public class MapTools {
                 }
                 """;
         return new McpServerFeatures.SyncToolSpecification(
-                new Tool("map_get_all", "Retrieve multiple entries from a Hazelcast Map by keys", schema, null, null, null, null),
+                Tool.builder().name("map_get_all").description("Retrieve multiple entries from a Hazelcast Map by keys").inputSchema(JSON_MAPPER, schema).build(),
                 (exchange, request) -> {
                     Map<String, Object> args = request.arguments();
                     String mapName = (String) args.get("mapName");
@@ -236,7 +239,7 @@ public class MapTools {
                 }
                 """;
         return new McpServerFeatures.SyncToolSpecification(
-                new Tool("map_put_all", "Store multiple key-value pairs in a Hazelcast Map", schema, null, null, null, null),
+                Tool.builder().name("map_put_all").description("Store multiple key-value pairs in a Hazelcast Map").inputSchema(JSON_MAPPER, schema).build(),
                 (exchange, request) -> {
                     Map<String, Object> args = request.arguments();
                     String mapName = (String) args.get("mapName");
@@ -273,7 +276,7 @@ public class MapTools {
                 }
                 """;
         return new McpServerFeatures.SyncToolSpecification(
-                new Tool("map_size", "Get the number of entries in a Hazelcast Map", schema, null, null, null, null),
+                Tool.builder().name("map_size").description("Get the number of entries in a Hazelcast Map").inputSchema(JSON_MAPPER, schema).build(),
                 (exchange, request) -> {
                     Map<String, Object> args = request.arguments();
                     String mapName = (String) args.get("mapName");
@@ -303,7 +306,7 @@ public class MapTools {
                 }
                 """;
         return new McpServerFeatures.SyncToolSpecification(
-                new Tool("map_keys", "List keys in a Hazelcast Map (with optional limit)", schema, null, null, null, null),
+                Tool.builder().name("map_keys").description("List keys in a Hazelcast Map (with optional limit)").inputSchema(JSON_MAPPER, schema).build(),
                 (exchange, request) -> {
                     Map<String, Object> args = request.arguments();
                     String mapName = (String) args.get("mapName");
@@ -341,7 +344,7 @@ public class MapTools {
                 }
                 """;
         return new McpServerFeatures.SyncToolSpecification(
-                new Tool("map_values", "List values in a Hazelcast Map (with optional limit)", schema, null, null, null, null),
+                Tool.builder().name("map_values").description("List values in a Hazelcast Map (with optional limit)").inputSchema(JSON_MAPPER, schema).build(),
                 (exchange, request) -> {
                     Map<String, Object> args = request.arguments();
                     String mapName = (String) args.get("mapName");
@@ -382,7 +385,7 @@ public class MapTools {
                 }
                 """;
         return new McpServerFeatures.SyncToolSpecification(
-                new Tool("map_contains_key", "Check if a key exists in a Hazelcast Map", schema, null, null, null, null),
+                Tool.builder().name("map_contains_key").description("Check if a key exists in a Hazelcast Map").inputSchema(JSON_MAPPER, schema).build(),
                 (exchange, request) -> {
                     Map<String, Object> args = request.arguments();
                     String mapName = (String) args.get("mapName");
@@ -415,7 +418,7 @@ public class MapTools {
                 }
                 """;
         return new McpServerFeatures.SyncToolSpecification(
-                new Tool("map_clear", "Remove ALL entries from a Hazelcast Map (requires confirmation)", schema, null, null, null, null),
+                Tool.builder().name("map_clear").description("Remove ALL entries from a Hazelcast Map (requires confirmation)").inputSchema(JSON_MAPPER, schema).build(),
                 (exchange, request) -> {
                     Map<String, Object> args = request.arguments();
                     String mapName = (String) args.get("mapName");

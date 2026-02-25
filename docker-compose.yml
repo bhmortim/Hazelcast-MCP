@@ -10,9 +10,9 @@
 #   2. A demo data loader + live feed streamer (seeds data, then streams live)
 #   3. The MCP server connected to Hazelcast, ready for AI agent integration
 #
-# SSE mode (network-accessible MCP):
+# Streamable HTTP mode (network-accessible MCP):
 #   HAZELCAST_MCP_TRANSPORT=sse docker compose up
-#   → MCP SSE endpoint available at http://localhost:3000/sse
+#   → MCP Streamable HTTP endpoint available at http://localhost:3000/mcp
 #
 # With live stock & news feeds (optional, crypto works without keys):
 #   ALPHA_VANTAGE_API_KEY=your_key NEWS_API_KEY=your_key docker compose up

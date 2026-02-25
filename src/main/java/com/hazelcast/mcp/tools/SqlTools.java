@@ -8,6 +8,8 @@ import com.hazelcast.sql.SqlResult;
 import com.hazelcast.sql.SqlRow;
 import com.hazelcast.sql.SqlRowMetadata;
 import com.hazelcast.sql.SqlStatement;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.modelcontextprotocol.json.jackson2.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
@@ -25,6 +27,7 @@ public class SqlTools {
 
     private static final Logger logger = LoggerFactory.getLogger(SqlTools.class);
     private static final int DEFAULT_PAGE_SIZE = 100;
+    private static final JacksonMcpJsonMapper JSON_MAPPER = new JacksonMcpJsonMapper(new ObjectMapper());
 
     private final HazelcastInstance client;
     private final AccessController accessController;
@@ -62,10 +65,10 @@ public class SqlTools {
                 }
                 """;
         return new McpServerFeatures.SyncToolSpecification(
-                new Tool("sql_execute",
-                        "Execute a SQL query against Hazelcast and return results as JSON. "
-                                + "Supports SELECT, INSERT, UPDATE, DELETE. Use parameterized queries (?) to prevent injection.",
-                        schema, null, null, null, null),
+                Tool.builder().name("sql_execute")
+                        .description("Execute a SQL query against Hazelcast and return results as JSON. "
+                                + "Supports SELECT, INSERT, UPDATE, DELETE. Use parameterized queries (?) to prevent injection.")
+                        .inputSchema(JSON_MAPPER, schema).build(),
                 (exchange, request) -> {
                     Map<String, Object> args = request.arguments();
                     String query = (String) args.get("query");
