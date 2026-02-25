@@ -49,7 +49,7 @@ public class ClusterResources {
         return new McpServerFeatures.SyncResourceSpecification(
                 new Resource("hazelcast://cluster/info", "Cluster Info",
                         "Hazelcast cluster name, version, member count, and connection state",
-                        "application/json", null),
+                        "application/json", null, null, null, null),
                 (exchange, request) -> {
                     try {
                         HazelcastInstance client = connectionManager.getClient();
@@ -86,7 +86,7 @@ public class ClusterResources {
         return new McpServerFeatures.SyncResourceSpecification(
                 new Resource("hazelcast://cluster/health", "Cluster Health",
                         "Health check showing connection status, member count, and response latency",
-                        "application/json", null),
+                        "application/json", null, null, null, null),
                 (exchange, request) -> {
                     try {
                         var health = connectionManager.getHealth();
@@ -115,7 +115,7 @@ public class ClusterResources {
         return new McpServerFeatures.SyncResourceSpecification(
                 new Resource("hazelcast://structures/list", "Data Structures",
                         "List of all distributed objects in the cluster (maps, queues, topics, etc.) with type and size",
-                        "application/json", null),
+                        "application/json", null, null, null, null),
                 (exchange, request) -> {
                     try {
                         HazelcastInstance client = connectionManager.getClient();
@@ -169,7 +169,7 @@ public class ClusterResources {
                 new Resource("hazelcast://map/{name}/info", "Map Info",
                         "Detailed information about a specific IMap: entry count, configuration, and Near Cache stats. "
                                 + "Replace {name} with the map name, e.g. hazelcast://map/session-cache/info",
-                        "application/json", null),
+                        "application/json", null, null, null, null),
                 (exchange, request) -> {
                     try {
                         String uri = request.uri();
@@ -237,7 +237,7 @@ public class ClusterResources {
                 new Resource("hazelcast://vector/{name}/info", "VectorCollection Info",
                         "Information about a VectorCollection: index configuration, document count, dimensions. "
                                 + "Replace {name} with the collection name.",
-                        "application/json", null),
+                        "application/json", null, null, null, null),
                 (exchange, request) -> {
                     try {
                         String uri = request.uri();

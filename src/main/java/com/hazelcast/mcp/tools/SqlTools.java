@@ -66,7 +66,8 @@ public class SqlTools {
                         "Execute a SQL query against Hazelcast and return results as JSON. "
                                 + "Supports SELECT, INSERT, UPDATE, DELETE. Use parameterized queries (?) to prevent injection.",
                         schema, null, null, null, null),
-                (exchange, args) -> {
+                (exchange, request) -> {
+                    Map<String, Object> args = request.arguments();
                     String query = (String) args.get("query");
                     @SuppressWarnings("unchecked")
                     List<Object> params = args.get("params") != null ? (List<Object>) args.get("params") : List.of();
@@ -134,10 +135,10 @@ public class SqlTools {
     }
 
     private static CallToolResult textResult(String text) {
-        return new CallToolResult(List.of(new TextContent(text)), false);
+        return new CallToolResult(List.of(new TextContent(text)), false, null, null);
     }
 
     private static CallToolResult errorResult(String error) {
-        return new CallToolResult(List.of(new TextContent(error)), true);
+        return new CallToolResult(List.of(new TextContent(error)), true, null, null);
     }
 }

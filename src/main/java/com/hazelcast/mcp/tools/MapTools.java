@@ -63,7 +63,8 @@ public class MapTools {
                 """;
         return new McpServerFeatures.SyncToolSpecification(
                 new Tool("map_get", "Retrieve a value from a Hazelcast Map by key", schema, null, null, null, null),
-                (exchange, args) -> {
+                (exchange, request) -> {
+                    Map<String, Object> args = request.arguments();
                     String mapName = (String) args.get("mapName");
                     String key = (String) args.get("key");
                     try {
@@ -102,7 +103,8 @@ public class MapTools {
                 """;
         return new McpServerFeatures.SyncToolSpecification(
                 new Tool("map_put", "Store a key-value pair in a Hazelcast Map", schema, null, null, null, null),
-                (exchange, args) -> {
+                (exchange, request) -> {
+                    Map<String, Object> args = request.arguments();
                     String mapName = (String) args.get("mapName");
                     String key = (String) args.get("key");
                     Object value = args.get("value");
@@ -144,7 +146,8 @@ public class MapTools {
                 """;
         return new McpServerFeatures.SyncToolSpecification(
                 new Tool("map_delete", "Remove an entry from a Hazelcast Map by key", schema, null, null, null, null),
-                (exchange, args) -> {
+                (exchange, request) -> {
+                    Map<String, Object> args = request.arguments();
                     String mapName = (String) args.get("mapName");
                     String key = (String) args.get("key");
                     try {
@@ -182,7 +185,8 @@ public class MapTools {
                 """;
         return new McpServerFeatures.SyncToolSpecification(
                 new Tool("map_get_all", "Retrieve multiple entries from a Hazelcast Map by keys", schema, null, null, null, null),
-                (exchange, args) -> {
+                (exchange, request) -> {
+                    Map<String, Object> args = request.arguments();
                     String mapName = (String) args.get("mapName");
                     @SuppressWarnings("unchecked")
                     List<String> keys = (List<String>) args.get("keys");
@@ -233,7 +237,8 @@ public class MapTools {
                 """;
         return new McpServerFeatures.SyncToolSpecification(
                 new Tool("map_put_all", "Store multiple key-value pairs in a Hazelcast Map", schema, null, null, null, null),
-                (exchange, args) -> {
+                (exchange, request) -> {
+                    Map<String, Object> args = request.arguments();
                     String mapName = (String) args.get("mapName");
                     @SuppressWarnings("unchecked")
                     List<Map<String, Object>> entries = (List<Map<String, Object>>) args.get("entries");
@@ -269,7 +274,8 @@ public class MapTools {
                 """;
         return new McpServerFeatures.SyncToolSpecification(
                 new Tool("map_size", "Get the number of entries in a Hazelcast Map", schema, null, null, null, null),
-                (exchange, args) -> {
+                (exchange, request) -> {
+                    Map<String, Object> args = request.arguments();
                     String mapName = (String) args.get("mapName");
                     try {
                         if (!accessController.isMapAccessible(mapName)) {
@@ -298,7 +304,8 @@ public class MapTools {
                 """;
         return new McpServerFeatures.SyncToolSpecification(
                 new Tool("map_keys", "List keys in a Hazelcast Map (with optional limit)", schema, null, null, null, null),
-                (exchange, args) -> {
+                (exchange, request) -> {
+                    Map<String, Object> args = request.arguments();
                     String mapName = (String) args.get("mapName");
                     int limit = args.get("limit") != null ? ((Number) args.get("limit")).intValue() : 100;
                     try {
@@ -335,7 +342,8 @@ public class MapTools {
                 """;
         return new McpServerFeatures.SyncToolSpecification(
                 new Tool("map_values", "List values in a Hazelcast Map (with optional limit)", schema, null, null, null, null),
-                (exchange, args) -> {
+                (exchange, request) -> {
+                    Map<String, Object> args = request.arguments();
                     String mapName = (String) args.get("mapName");
                     int limit = args.get("limit") != null ? ((Number) args.get("limit")).intValue() : 100;
                     try {
@@ -375,7 +383,8 @@ public class MapTools {
                 """;
         return new McpServerFeatures.SyncToolSpecification(
                 new Tool("map_contains_key", "Check if a key exists in a Hazelcast Map", schema, null, null, null, null),
-                (exchange, args) -> {
+                (exchange, request) -> {
+                    Map<String, Object> args = request.arguments();
                     String mapName = (String) args.get("mapName");
                     String key = (String) args.get("key");
                     try {
@@ -407,7 +416,8 @@ public class MapTools {
                 """;
         return new McpServerFeatures.SyncToolSpecification(
                 new Tool("map_clear", "Remove ALL entries from a Hazelcast Map (requires confirmation)", schema, null, null, null, null),
-                (exchange, args) -> {
+                (exchange, request) -> {
+                    Map<String, Object> args = request.arguments();
                     String mapName = (String) args.get("mapName");
                     Boolean confirm = (Boolean) args.get("confirm");
                     try {
@@ -435,10 +445,10 @@ public class MapTools {
     // --- Helpers ---
 
     private static CallToolResult textResult(String text) {
-        return new CallToolResult(List.of(new TextContent(text)), false);
+        return new CallToolResult(List.of(new TextContent(text)), false, null, null);
     }
 
     private static CallToolResult errorResult(String error) {
-        return new CallToolResult(List.of(new TextContent(error)), true);
+        return new CallToolResult(List.of(new TextContent(error)), true, null, null);
     }
 }

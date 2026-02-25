@@ -74,7 +74,8 @@ public class VectorTools {
                 new Tool("vector_search",
                         "Perform similarity search on a Hazelcast VectorCollection. Returns topK nearest neighbors with scores.",
                         schema, null, null, null, null),
-                (exchange, args) -> {
+                (exchange, request) -> {
+                    Map<String, Object> args = request.arguments();
                     if (!vectorModuleAvailable) {
                         return unavailableResult();
                     }
@@ -111,7 +112,8 @@ public class VectorTools {
                 """;
         return new McpServerFeatures.SyncToolSpecification(
                 new Tool("vector_put", "Store a document with vector embedding in a Hazelcast VectorCollection", schema, null, null, null, null),
-                (exchange, args) -> {
+                (exchange, request) -> {
+                    Map<String, Object> args = request.arguments();
                     if (!vectorModuleAvailable) {
                         return unavailableResult();
                     }
@@ -140,7 +142,8 @@ public class VectorTools {
                 """;
         return new McpServerFeatures.SyncToolSpecification(
                 new Tool("vector_get", "Retrieve a document by key from a Hazelcast VectorCollection", schema, null, null, null, null),
-                (exchange, args) -> {
+                (exchange, request) -> {
+                    Map<String, Object> args = request.arguments();
                     if (!vectorModuleAvailable) {
                         return unavailableResult();
                     }
@@ -166,7 +169,8 @@ public class VectorTools {
                 """;
         return new McpServerFeatures.SyncToolSpecification(
                 new Tool("vector_delete", "Remove a document by key from a Hazelcast VectorCollection", schema, null, null, null, null),
-                (exchange, args) -> {
+                (exchange, request) -> {
+                    Map<String, Object> args = request.arguments();
                     if (!vectorModuleAvailable) {
                         return unavailableResult();
                     }
@@ -399,11 +403,11 @@ public class VectorTools {
     }
 
     private static CallToolResult textResult(String text) {
-        return new CallToolResult(List.of(new TextContent(text)), false);
+        return new CallToolResult(List.of(new TextContent(text)), false, null, null);
     }
 
     private static CallToolResult errorResult(String error) {
-        return new CallToolResult(List.of(new TextContent(error)), true);
+        return new CallToolResult(List.of(new TextContent(error)), true, null, null);
     }
 
     private static CallToolResult unavailableResult() {

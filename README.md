@@ -64,13 +64,13 @@ ALPHA_VANTAGE_API_KEY=your_key NEWS_API_KEY=your_key docker compose up
 "Give me a full market briefing"
 ```
 
-### Connect Claude Desktop (Docker + SSE)
+### Connect Claude Desktop (Docker + Streamable HTTP)
 
-The easiest way to connect Claude Desktop to the Docker setup is via SSE transport.
+The easiest way to connect Claude Desktop to the Docker setup is via Streamable HTTP transport.
 Claude Desktop only speaks stdio to child processes, so we use `mcp-remote` as a
-stdio-to-SSE bridge (requires [Node.js](https://nodejs.org/) 18+).
+stdio-to-HTTP bridge (requires [Node.js](https://nodejs.org/) 18+).
 
-**Step 1:** Start the stack in SSE mode:
+**Step 1:** Start the stack in HTTP mode:
 ```bash
 # Linux / macOS
 HAZELCAST_MCP_TRANSPORT=sse docker compose up
@@ -91,7 +91,7 @@ $env:HAZELCAST_MCP_TRANSPORT="sse"; docker compose up
   "mcpServers": {
     "hazelcast": {
       "command": "npx",
-      "args": ["-y", "mcp-remote", "http://localhost:3000/sse"]
+      "args": ["-y", "mcp-remote", "http://localhost:3000/mcp"]
     }
   }
 }
@@ -100,12 +100,12 @@ $env:HAZELCAST_MCP_TRANSPORT="sse"; docker compose up
 > **Note:** `mcp-remote` is auto-installed on first run via `npx -y`. If you already
 > have other entries in `mcpServers`, merge the `"hazelcast"` key into the existing object.
 
-**Step 3:** Restart Claude Desktop (fully quit and reopen). Look for the hammer (🔨) icon
+**Step 3:** Restart Claude Desktop (fully quit and reopen). Look for the hammer icon
 in the chat input — click it to verify the Hazelcast tools are listed.
 
 **Troubleshooting:**
 - **No hammer icon?** Make sure Docker is running and the MCP server container is healthy
-  (`docker compose ps`). The SSE endpoint must be available _before_ Claude Desktop starts.
+  (`docker compose ps`). The HTTP endpoint must be available _before_ Claude Desktop starts.
 - **JSON parse error on launch?** Validate your config at [jsonlint.com](https://jsonlint.com/).
   A common mistake is a missing comma between `"preferences"` and `"mcpServers"` blocks.
 - **Windows `HAZELCAST_MCP_TRANSPORT=sse` not recognized?** PowerShell requires the
@@ -147,9 +147,9 @@ If you prefer stdio transport, you can use `docker exec`:
 }
 ```
 
-### SSE mode (network-accessible)
+### Streamable HTTP mode (network-accessible)
 
-To expose the MCP server over HTTP with Server-Sent Events:
+To expose the MCP server over Streamable HTTP (MCP protocol 2025-06-18):
 
 ```bash
 # Linux / macOS
@@ -159,9 +159,13 @@ HAZELCAST_MCP_TRANSPORT=sse docker compose up
 $env:HAZELCAST_MCP_TRANSPORT="sse"; docker compose up
 ```
 
-The SSE endpoint will be available at `http://localhost:3000/sse` with the message
-endpoint at `http://localhost:3000/mcp/message`. Any MCP client that supports SSE
-can connect directly. For Claude Desktop, use the `mcp-remote` bridge as described above.
+The Streamable HTTP endpoint will be available at `http://localhost:3000/mcp`. Any MCP
+client that supports Streamable HTTP can connect directly. For Claude Desktop, use the
+`mcp-remote` bridge as described above.
+
+> **Legacy SSE:** If you need the older SSE transport (protocol 2024-11-05), set
+> `transport: "sse-legacy"` in the YAML config. The SSE endpoint uses `/sse` with
+> message endpoint at `/mcp/message`.
 
 ## Features
 
@@ -182,7 +186,8 @@ can connect directly. For Claude Desktop, use the `mcp-remote` bridge as describ
 
 **Transports**:
 - **stdio** — Standard MCP transport for local AI clients (Claude Desktop, Cursor)
-- **SSE** — HTTP Server-Sent Events for network-accessible MCP (embedded Jetty)
+- **Streamable HTTP** — Recommended HTTP transport for network-accessible MCP (protocol 2025-06-18)
+- **SSE (legacy)** — Older HTTP Server-Sent Events transport (protocol 2024-11-05)
 
 ## Quick Start (without Docker)
 
@@ -210,7 +215,7 @@ mcp:
   server:
     name: "hazelcast-mcp-server"
     version: "1.0.0"
-    transport: "stdio"    # or "sse" for HTTP
+    transport: "stdio"    # or "sse" for Streamable HTTP, "sse-legacy" for legacy SSE
     http:
       port: 3000
       host: "0.0.0.0"
@@ -257,9 +262,9 @@ Add to `.cursor/mcp.json`:
 }
 ```
 
-### SSE mode with Claude Desktop
+### Streamable HTTP mode with Claude Desktop
 
-For network-accessible MCP via SSE, start the server with SSE transport:
+For network-accessible MCP via Streamable HTTP, start the server with HTTP transport:
 
 ```bash
 # Linux / macOS
@@ -276,16 +281,16 @@ Then configure Claude Desktop to connect via the `mcp-remote` bridge (requires N
   "mcpServers": {
     "hazelcast": {
       "command": "npx",
-      "args": ["-y", "mcp-remote", "http://localhost:3000/sse"]
+      "args": ["-y", "mcp-remote", "http://localhost:3000/mcp"]
     }
   }
 }
 ```
 
 > **Why `mcp-remote`?** Claude Desktop communicates with MCP servers over stdio only.
-> The `mcp-remote` package bridges stdio↔SSE so Claude Desktop can reach network-based
-> MCP servers. Any MCP client that natively supports SSE can connect directly to
-> `http://localhost:3000/sse` without the bridge.
+> The `mcp-remote` package bridges stdio↔HTTP so Claude Desktop can reach network-based
+> MCP servers. Any MCP client that natively supports Streamable HTTP can connect directly
+> to `http://localhost:3000/mcp` without the bridge.
 
 ## Configuration Reference
 
@@ -298,7 +303,7 @@ Then configure Claude Desktop to connect via the `mcp-remote` bridge (requires N
 | `HAZELCAST_MCP_SECURITY_USERNAME` | Authentication username | (empty) |
 | `HAZELCAST_MCP_SECURITY_PASSWORD` | Authentication password | (empty) |
 | `HAZELCAST_MCP_SECURITY_TOKEN` | Token-based auth | (empty) |
-| `HAZELCAST_MCP_TRANSPORT` | Transport type (`stdio` or `sse`) | `stdio` |
+| `HAZELCAST_MCP_TRANSPORT` | Transport type (`stdio`, `sse`, or `sse-legacy`) | `stdio` |
 | `HAZELCAST_MCP_ACCESS_MODE` | Access control mode (`all`, `allowlist`, `denylist`) | `all` |
 | `ALPHA_VANTAGE_API_KEY` | Alpha Vantage API key for live stock data | (disabled) |
 | `NEWS_API_KEY` | NewsAPI key for live financial news | (disabled) |
@@ -323,14 +328,14 @@ access:
 
 ```
 AI Agent (Claude, Cursor, etc.)
-    │ MCP Protocol (stdio or SSE)
+    │ MCP Protocol (stdio or Streamable HTTP)
     ▼
 Hazelcast Client MCP Server
     ├── Tool Registry (map_*, sql_*, vector_*)
     ├── Resource Provider (cluster info, structures)
     ├── Prompt Templates (cache-lookup, data-exploration)
     ├── Access Controller (allowlist/denylist)
-    ├── Transport Layer (stdio / embedded Jetty SSE)
+    ├── Transport Layer (stdio / Streamable HTTP / legacy SSE via Jetty 12)
     └── Hazelcast Client Adapter
             │ Hazelcast Binary Protocol
             ▼
@@ -340,9 +345,9 @@ Hazelcast Client MCP Server
 ## Technology Stack
 
 - **Language**: Java 17+
-- **MCP SDK**: [MCP Java SDK](https://github.com/modelcontextprotocol/java-sdk) v0.17.1
+- **MCP SDK**: [MCP Java SDK](https://github.com/modelcontextprotocol/java-sdk) v1.0.0
 - **Hazelcast Client**: Hazelcast 5.6+ (compatible with 5.5+)
-- **Transport**: stdio (local), SSE via embedded Jetty 12 (Jakarta Servlet 6.1)
+- **Transport**: stdio (local), Streamable HTTP / legacy SSE via embedded Jetty 12 (Jakarta Servlet 6.1)
 - **Build**: Maven, publishes fat JAR via `maven-shade-plugin`
 - **Docker**: Multi-stage build (`eclipse-temurin:17`), Compose quickstart with demo data
 - **Live Data**: CoinGecko, Alpha Vantage, NewsAPI integration with Hazelcast Jet

@@ -10,12 +10,13 @@ import com.hazelcast.mcp.tools.MapTools;
 import com.hazelcast.mcp.tools.SqlTools;
 import com.hazelcast.mcp.tools.VectorTools;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.modelcontextprotocol.json.jackson.JacksonMcpJsonMapper;
+import io.modelcontextprotocol.json.jackson2.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.server.transport.StdioServerTransportProvider;
 import io.modelcontextprotocol.server.transport.HttpServletSseServerTransportProvider;
+import io.modelcontextprotocol.server.transport.HttpServletStreamableServerTransportProvider;
 import io.modelcontextprotocol.spec.McpSchema.ServerCapabilities;
 import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
 import org.eclipse.jetty.ee10.servlet.ServletHolder;
@@ -28,11 +29,12 @@ import java.util.List;
 
 /**
  * Main entry point for the Hazelcast Client MCP Server.
- * Supports both stdio (default) and SSE/HTTP transports.
+ * Supports stdio (default), Streamable HTTP, and legacy SSE transports.
  *
  * <ul>
  *   <li>stdio — Standard MCP stdio transport for local AI client integration</li>
- *   <li>sse — HTTP Server-Sent Events transport for network-accessible MCP</li>
+ *   <li>sse — Streamable HTTP transport for network-accessible MCP (protocol 2025-06-18)</li>
+ *   <li>sse-legacy — Legacy SSE transport (protocol 2024-11-05 only)</li>
  * </ul>
  */
 public class HazelcastMcpServer {
@@ -42,7 +44,7 @@ public class HazelcastMcpServer {
     private McpSyncServer mcpServer;
     private HazelcastConnectionManager connectionManager;
     private McpServerConfig config;
-    private Server jettyServer; // only used for SSE transport
+    private Server jettyServer; // only used for HTTP transports
 
     public static void main(String[] args) {
         String configPath = args.length > 0 ? args[0] : null;
@@ -85,6 +87,8 @@ public class HazelcastMcpServer {
             // 6. Build transport based on config
             String transport = config.getMcp().getServer().getTransport();
             if ("sse".equalsIgnoreCase(transport) || "http".equalsIgnoreCase(transport)) {
+                startStreamableHttpTransport(allTools, allResources, allPrompts);
+            } else if ("sse-legacy".equalsIgnoreCase(transport)) {
                 startSseTransport(allTools, allResources, allPrompts);
             } else {
                 startStdioTransport(allTools, allResources, allPrompts);
@@ -93,6 +97,10 @@ public class HazelcastMcpServer {
             logger.info("Hazelcast MCP Server started successfully");
             logger.info("  Transport: {}", transport);
             if ("sse".equalsIgnoreCase(transport) || "http".equalsIgnoreCase(transport)) {
+                logger.info("  Streamable HTTP endpoint: http://{}:{}/mcp",
+                        config.getMcp().getServer().getHttp().getHost(),
+                        config.getMcp().getServer().getHttp().getPort());
+            } else if ("sse-legacy".equalsIgnoreCase(transport)) {
                 logger.info("  SSE endpoint: http://{}:{}/sse",
                         config.getMcp().getServer().getHttp().getHost(),
                         config.getMcp().getServer().getHttp().getPort());
@@ -107,8 +115,9 @@ public class HazelcastMcpServer {
             // Register shutdown hook
             Runtime.getRuntime().addShutdownHook(new Thread(this::stop));
 
-            // Keep SSE server alive (stdio blocks on stdin naturally)
-            if ("sse".equalsIgnoreCase(transport) || "http".equalsIgnoreCase(transport)) {
+            // Keep HTTP server alive (stdio blocks on stdin naturally)
+            if ("sse".equalsIgnoreCase(transport) || "http".equalsIgnoreCase(transport)
+                    || "sse-legacy".equalsIgnoreCase(transport)) {
                 Thread.currentThread().join();
             }
 
@@ -140,6 +149,56 @@ public class HazelcastMcpServer {
                 .build();
     }
 
+    /**
+     * Start Streamable HTTP transport (MCP protocol 2025-06-18).
+     * This is the recommended transport for network-accessible MCP servers.
+     */
+    private void startStreamableHttpTransport(
+            List<McpServerFeatures.SyncToolSpecification> tools,
+            List<McpServerFeatures.SyncResourceSpecification> resources,
+            List<McpServerFeatures.SyncPromptSpecification> prompts) throws Exception {
+
+        int port = config.getMcp().getServer().getHttp().getPort();
+        String host = config.getMcp().getServer().getHttp().getHost();
+
+        // Create Streamable HTTP transport provider (supports protocol 2025-06-18)
+        HttpServletStreamableServerTransportProvider streamableTransport =
+                HttpServletStreamableServerTransportProvider.builder()
+                        .jsonMapper(new JacksonMcpJsonMapper(new ObjectMapper()))
+                        .mcpEndpoint("/mcp")
+                        .build();
+
+        // Build MCP server with Streamable HTTP transport
+        mcpServer = McpServer.sync(streamableTransport)
+                .serverInfo(config.getMcp().getServer().getName(),
+                        config.getMcp().getServer().getVersion())
+                .capabilities(ServerCapabilities.builder()
+                        .resources(false, true)
+                        .tools(true)
+                        .prompts(true)
+                        .logging()
+                        .build())
+                .tools(tools)
+                .resources(resources)
+                .prompts(prompts)
+                .build();
+
+        // Set up embedded Jetty 12 server
+        jettyServer = new Server(port);
+
+        ServletContextHandler context = new ServletContextHandler();
+        context.setContextPath("/");
+        context.addServlet(new ServletHolder("mcp-streamable", streamableTransport), "/*");
+        jettyServer.setHandler(context);
+
+        jettyServer.start();
+        logger.info("Jetty Streamable HTTP server listening on {}:{}", host, port);
+    }
+
+    /**
+     * Start legacy SSE transport (MCP protocol 2024-11-05 only).
+     * Use transport: "sse-legacy" in config to use this transport.
+     */
     private void startSseTransport(
             List<McpServerFeatures.SyncToolSpecification> tools,
             List<McpServerFeatures.SyncResourceSpecification> resources,
@@ -148,7 +207,7 @@ public class HazelcastMcpServer {
         int port = config.getMcp().getServer().getHttp().getPort();
         String host = config.getMcp().getServer().getHttp().getHost();
 
-        // Create SSE transport provider from MCP SDK
+        // Create SSE transport provider (protocol 2024-11-05 only)
         HttpServletSseServerTransportProvider sseTransport =
                 HttpServletSseServerTransportProvider.builder()
                         .jsonMapper(new JacksonMcpJsonMapper(new ObjectMapper()))
