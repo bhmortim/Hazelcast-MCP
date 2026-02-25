@@ -1,0 +1,44 @@
+# =============================================================================
+# Hazelcast MCP Server — Docker Configuration
+# =============================================================================
+# This config is used inside the Docker container.
+# Environment variables override these values (see README for full list).
+# =============================================================================
+
+hazelcast:
+  cluster:
+    name: "demo"
+    members:
+      - "hazelcast:5701"
+  security:
+    username: ""
+    password: ""
+    token: ""
+  tls:
+    enabled: false
+  serialization:
+    compact:
+      classes: []
+
+mcp:
+  server:
+    name: "hazelcast-mcp-server"
+    version: "1.0.0"
+    transport: "stdio"
+    http:
+      port: 3000
+      host: "0.0.0.0"
+  prompts: []
+
+access:
+  mode: "all"
+  allowlist:
+    maps: []
+    queues: []
+    vectors: []
+  denylist:
+    maps: []
+  operations:
+    sql: true
+    write: true
+    clear: false

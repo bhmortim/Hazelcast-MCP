@@ -1,0 +1,80 @@
+# =============================================================================
+# Hazelcast MCP Server — Docker Compose Developer Quickstart
+# =============================================================================
+#
+# Quick start:
+#   docker compose up
+#
+# This brings up:
+#   1. A single-node Hazelcast cluster with Jet enabled
+#   2. A demo data loader that populates financial trading data, then exits
+#   3. The MCP server connected to Hazelcast, ready for AI agent integration
+#
+# SSE mode (network-accessible MCP):
+#   HAZELCAST_MCP_TRANSPORT=sse docker compose up
+#   → MCP SSE endpoint available at http://localhost:3000/sse
+#
+# =============================================================================
+
+services:
+
+  # --- Hazelcast single node ---
+  hazelcast:
+    image: hazelcast/hazelcast:5.5
+    container_name: hazelcast
+    ports:
+      - "5701:5701"
+    environment:
+      HZ_CLUSTERNAME: demo
+      JAVA_OPTS: >-
+        -Dhazelcast.jet.enabled=true
+        -Dhazelcast.jet.resource-upload-enabled=true
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5701/hazelcast/health/ready || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    networks:
+      - hazelcast-net
+
+  # --- Demo data loader (runs once, populates data, then exits) ---
+  demo-loader:
+    build: .
+    container_name: demo-loader
+    depends_on:
+      hazelcast:
+        condition: service_healthy
+    environment:
+      MAIN_CLASS: com.hazelcast.mcp.demo.DemoDataLoader
+      HAZELCAST_CLUSTER_NAME: demo
+      HAZELCAST_MEMBERS: hazelcast:5701
+      JAVA_OPTS: "-Xmx256m"
+    restart: "no"
+    networks:
+      - hazelcast-net
+
+  # --- MCP Server ---
+  mcp-server:
+    build: .
+    container_name: hazelcast-mcp-server
+    depends_on:
+      hazelcast:
+        condition: service_healthy
+      demo-loader:
+        condition: service_completed_successfully
+    environment:
+      HAZELCAST_MCP_CLUSTER_NAME: demo
+      HAZELCAST_MCP_CLUSTER_MEMBERS: hazelcast:5701
+      HAZELCAST_MCP_TRANSPORT: ${HAZELCAST_MCP_TRANSPORT:-stdio}
+      JAVA_OPTS: "-Xmx512m"
+    ports:
+      - "3000:3000"
+    stdin_open: true
+    tty: true
+    networks:
+      - hazelcast-net
+
+networks:
+  hazelcast-net:
+    driver: bridge

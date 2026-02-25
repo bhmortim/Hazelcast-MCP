@@ -31,3 +31,6 @@ hazelcast-mcp-local.yaml
 # Build artifacts
 dependency-reduced-pom.xml
 .attach_pid*
+
+# Docker
+.docker/

@@ -14,7 +14,11 @@ import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.server.transport.StdioServerTransportProvider;
+import io.modelcontextprotocol.server.transport.HttpServletSseServerTransportProvider;
 import io.modelcontextprotocol.spec.McpSchema.ServerCapabilities;
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.servlet.ServletContextHandler;
+import org.eclipse.jetty.servlet.ServletHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,7 +27,12 @@ import java.util.List;
 
 /**
  * Main entry point for the Hazelcast Client MCP Server.
- * Bootstraps the MCP server with stdio transport, registers all tools, resources, and prompts.
+ * Supports both stdio (default) and SSE/HTTP transports.
+ *
+ * <ul>
+ *   <li>stdio — Standard MCP stdio transport for local AI client integration</li>
+ *   <li>sse — HTTP Server-Sent Events transport for network-accessible MCP</li>
+ * </ul>
  */
 public class HazelcastMcpServer {
 
@@ -32,6 +41,7 @@ public class HazelcastMcpServer {
     private McpSyncServer mcpServer;
     private HazelcastConnectionManager connectionManager;
     private McpServerConfig config;
+    private Server jettyServer; // only used for SSE transport
 
     public static void main(String[] args) {
         String configPath = args.length > 0 ? args[0] : null;
@@ -71,25 +81,21 @@ public class HazelcastMcpServer {
             List<McpServerFeatures.SyncPromptSpecification> allPrompts = new ArrayList<>();
             allPrompts.addAll(builtInPrompts.getPromptSpecifications());
 
-            // 6. Build and start MCP server with stdio transport
-            StdioServerTransportProvider transportProvider = new StdioServerTransportProvider(new ObjectMapper());
-
-            mcpServer = McpServer.sync(transportProvider)
-                    .serverInfo(config.getMcp().getServer().getName(),
-                            config.getMcp().getServer().getVersion())
-                    .capabilities(ServerCapabilities.builder()
-                            .resources(false, true)
-                            .tools(true)
-                            .prompts(true)
-                            .logging()
-                            .build())
-                    .tools(allTools)
-                    .resources(allResources)
-                    .prompts(allPrompts)
-                    .build();
+            // 6. Build transport based on config
+            String transport = config.getMcp().getServer().getTransport();
+            if ("sse".equalsIgnoreCase(transport) || "http".equalsIgnoreCase(transport)) {
+                startSseTransport(allTools, allResources, allPrompts);
+            } else {
+                startStdioTransport(allTools, allResources, allPrompts);
+            }
 
             logger.info("Hazelcast MCP Server started successfully");
-            logger.info("  Transport: {}", config.getMcp().getServer().getTransport());
+            logger.info("  Transport: {}", transport);
+            if ("sse".equalsIgnoreCase(transport) || "http".equalsIgnoreCase(transport)) {
+                logger.info("  SSE endpoint: http://{}:{}/sse",
+                        config.getMcp().getServer().getHttp().getHost(),
+                        config.getMcp().getServer().getHttp().getPort());
+            }
             logger.info("  Tools registered: {}", allTools.size());
             logger.info("  Resources registered: {}", allResources.size());
             logger.info("  Prompts registered: {}", allPrompts.size());
@@ -100,15 +106,88 @@ public class HazelcastMcpServer {
             // Register shutdown hook
             Runtime.getRuntime().addShutdownHook(new Thread(this::stop));
 
+            // Keep SSE server alive (stdio blocks on stdin naturally)
+            if ("sse".equalsIgnoreCase(transport) || "http".equalsIgnoreCase(transport)) {
+                Thread.currentThread().join();
+            }
+
         } catch (Exception e) {
             logger.error("Failed to start Hazelcast MCP Server: {}", e.getMessage(), e);
             System.exit(1);
         }
     }
 
+    private void startStdioTransport(
+            List<McpServerFeatures.SyncToolSpecification> tools,
+            List<McpServerFeatures.SyncResourceSpecification> resources,
+            List<McpServerFeatures.SyncPromptSpecification> prompts) {
+
+        StdioServerTransportProvider transportProvider = new StdioServerTransportProvider(new ObjectMapper());
+
+        mcpServer = McpServer.sync(transportProvider)
+                .serverInfo(config.getMcp().getServer().getName(),
+                        config.getMcp().getServer().getVersion())
+                .capabilities(ServerCapabilities.builder()
+                        .resources(false, true)
+                        .tools(true)
+                        .prompts(true)
+                        .logging()
+                        .build())
+                .tools(tools)
+                .resources(resources)
+                .prompts(prompts)
+                .build();
+    }
+
+    private void startSseTransport(
+            List<McpServerFeatures.SyncToolSpecification> tools,
+            List<McpServerFeatures.SyncResourceSpecification> resources,
+            List<McpServerFeatures.SyncPromptSpecification> prompts) throws Exception {
+
+        int port = config.getMcp().getServer().getHttp().getPort();
+        String host = config.getMcp().getServer().getHttp().getHost();
+
+        // Create SSE transport provider from MCP SDK
+        HttpServletSseServerTransportProvider sseTransport =
+                HttpServletSseServerTransportProvider.builder()
+                        .objectMapper(new ObjectMapper())
+                        .build();
+
+        // Build MCP server with SSE transport
+        mcpServer = McpServer.sync(sseTransport)
+                .serverInfo(config.getMcp().getServer().getName(),
+                        config.getMcp().getServer().getVersion())
+                .capabilities(ServerCapabilities.builder()
+                        .resources(false, true)
+                        .tools(true)
+                        .prompts(true)
+                        .logging()
+                        .build())
+                .tools(tools)
+                .resources(resources)
+                .prompts(prompts)
+                .build();
+
+        // Set up embedded Jetty server
+        jettyServer = new Server(port);
+
+        ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
+        context.setContextPath("/");
+        jettyServer.setHandler(context);
+
+        // Register SSE transport servlet at root path
+        context.addServlet(new ServletHolder("mcp-sse", sseTransport), "/*");
+
+        jettyServer.start();
+        logger.info("Jetty SSE server listening on {}:{}", host, port);
+    }
+
     public void stop() {
         logger.info("Shutting down Hazelcast MCP Server...");
         try {
+            if (jettyServer != null) {
+                jettyServer.stop();
+            }
             if (mcpServer != null) {
                 mcpServer.close();
             }
