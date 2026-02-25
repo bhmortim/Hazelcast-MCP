@@ -4,6 +4,7 @@ import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.mcp.access.AccessController;
 import com.hazelcast.mcp.config.McpServerConfig;
 import io.modelcontextprotocol.server.McpServerFeatures;
+import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,8 +55,8 @@ class VectorToolsTest {
                 .findFirst()
                 .orElseThrow();
 
-        CallToolResult result = searchSpec.call().apply(null,
-                Map.of("collectionName", "test", "vector", List.of(1.0, 2.0, 3.0)));
+        CallToolResult result = searchSpec.callHandler().apply(null,
+                new CallToolRequest("vector_search", Map.of("collectionName", "test", "vector", List.of(1.0, 2.0, 3.0))));
 
         assertTrue(result.isError());
         String text = ((TextContent) result.content().get(0)).text();
@@ -69,10 +70,10 @@ class VectorToolsTest {
                 .findFirst()
                 .orElseThrow();
 
-        CallToolResult result = putSpec.call().apply(null,
-                Map.of("collectionName", "test", "key", "k1",
+        CallToolResult result = putSpec.callHandler().apply(null,
+                new CallToolRequest("vector_put", Map.of("collectionName", "test", "key", "k1",
                         "value", Map.of("text", "hello"),
-                        "vector", List.of(1.0, 2.0)));
+                        "vector", List.of(1.0, 2.0))));
 
         assertTrue(result.isError());
     }
@@ -93,8 +94,8 @@ class VectorToolsTest {
                 .findFirst()
                 .orElseThrow();
 
-        CallToolResult result = deleteSpec.call().apply(null,
-                Map.of("collectionName", "test", "key", "k1"));
+        CallToolResult result = deleteSpec.callHandler().apply(null,
+                new CallToolRequest("vector_delete", Map.of("collectionName", "test", "key", "k1")));
 
         assertTrue(result.isError());
     }

@@ -4,6 +4,7 @@ import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.mcp.access.AccessController;
 import com.hazelcast.mcp.config.McpServerConfig;
 import io.modelcontextprotocol.server.McpServerFeatures;
+import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
 import org.junit.jupiter.api.BeforeEach;
@@ -77,8 +78,8 @@ class MapToolsTest {
                 .findFirst()
                 .orElseThrow();
 
-        CallToolResult result = getSpec.call().apply(null,
-                Map.of("mapName", "secret-map", "key", "k1"));
+        CallToolResult result = getSpec.callHandler().apply(null,
+                new CallToolRequest("map_get", Map.of("mapName", "secret-map", "key", "k1")));
 
         assertTrue(result.isError());
         String text = ((TextContent) result.content().get(0)).text();
@@ -92,8 +93,8 @@ class MapToolsTest {
                 .findFirst()
                 .orElseThrow();
 
-        CallToolResult result = putSpec.call().apply(null,
-                Map.of("mapName", "allowed-map", "key", "k1", "value", "v1"));
+        CallToolResult result = putSpec.callHandler().apply(null,
+                new CallToolRequest("map_put", Map.of("mapName", "allowed-map", "key", "k1", "value", "v1")));
 
         assertTrue(result.isError());
         String text = ((TextContent) result.content().get(0)).text();
@@ -107,8 +108,8 @@ class MapToolsTest {
                 .findFirst()
                 .orElseThrow();
 
-        CallToolResult result = clearSpec.call().apply(null,
-                Map.of("mapName", "allowed-map", "confirm", true));
+        CallToolResult result = clearSpec.callHandler().apply(null,
+                new CallToolRequest("map_clear", Map.of("mapName", "allowed-map", "confirm", true)));
 
         assertTrue(result.isError());
     }

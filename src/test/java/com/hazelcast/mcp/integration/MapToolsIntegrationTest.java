@@ -5,6 +5,7 @@ import com.hazelcast.mcp.access.AccessController;
 import com.hazelcast.mcp.config.McpServerConfig;
 import com.hazelcast.mcp.tools.MapTools;
 import io.modelcontextprotocol.server.McpServerFeatures;
+import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
 import org.junit.jupiter.api.*;
@@ -53,6 +54,10 @@ class MapToolsIntegrationTest {
                 .orElseThrow();
     }
 
+    private CallToolResult callTool(String name, Map<String, Object> args) {
+        return getTool(name).callHandler().apply(null, new CallToolRequest(name, args));
+    }
+
     private String getResultText(CallToolResult result) {
         return ((TextContent) result.content().get(0)).text();
     }
@@ -60,7 +65,7 @@ class MapToolsIntegrationTest {
     @Test
     @Order(1)
     void mapPutStoresValue() {
-        CallToolResult result = getTool("map_put").call().apply(null,
+        CallToolResult result = callTool("map_put",
                 Map.of("mapName", "test-map",
                         "key", "user:1",
                         "value", Map.of("name", "Alice", "age", 30)));
@@ -73,7 +78,7 @@ class MapToolsIntegrationTest {
     @Test
     @Order(2)
     void mapGetRetrievesValue() {
-        CallToolResult result = getTool("map_get").call().apply(null,
+        CallToolResult result = callTool("map_get",
                 Map.of("mapName", "test-map", "key", "user:1"));
 
         assertFalse(result.isError());
@@ -84,7 +89,7 @@ class MapToolsIntegrationTest {
     @Test
     @Order(3)
     void mapContainsKeyFindsExistingKey() {
-        CallToolResult result = getTool("map_contains_key").call().apply(null,
+        CallToolResult result = callTool("map_contains_key",
                 Map.of("mapName", "test-map", "key", "user:1"));
 
         assertFalse(result.isError());
@@ -96,11 +101,11 @@ class MapToolsIntegrationTest {
     @Order(4)
     void mapSizeReturnsCorrectCount() {
         // Put a second entry
-        getTool("map_put").call().apply(null,
+        callTool("map_put",
                 Map.of("mapName", "test-map", "key", "user:2",
                         "value", Map.of("name", "Bob")));
 
-        CallToolResult result = getTool("map_size").call().apply(null,
+        CallToolResult result = callTool("map_size",
                 Map.of("mapName", "test-map"));
 
         assertFalse(result.isError());
@@ -111,7 +116,7 @@ class MapToolsIntegrationTest {
     @Test
     @Order(5)
     void mapKeysReturnsList() {
-        CallToolResult result = getTool("map_keys").call().apply(null,
+        CallToolResult result = callTool("map_keys",
                 Map.of("mapName", "test-map"));
 
         assertFalse(result.isError());
@@ -123,13 +128,13 @@ class MapToolsIntegrationTest {
     @Test
     @Order(6)
     void mapDeleteRemovesEntry() {
-        CallToolResult result = getTool("map_delete").call().apply(null,
+        CallToolResult result = callTool("map_delete",
                 Map.of("mapName", "test-map", "key", "user:2"));
 
         assertFalse(result.isError());
 
         // Verify key is gone
-        CallToolResult getResult = getTool("map_get").call().apply(null,
+        CallToolResult getResult = callTool("map_get",
                 Map.of("mapName", "test-map", "key", "user:2"));
         String text = getResultText(getResult);
         assertTrue(text.contains("null") || text.contains("not found") || text.contains("\"value\":null"));
@@ -138,12 +143,12 @@ class MapToolsIntegrationTest {
     @Test
     @Order(7)
     void mapGetAllRetrievesMultiple() {
-        getTool("map_put").call().apply(null,
+        callTool("map_put",
                 Map.of("mapName", "test-map", "key", "user:3", "value", "val3"));
-        getTool("map_put").call().apply(null,
+        callTool("map_put",
                 Map.of("mapName", "test-map", "key", "user:4", "value", "val4"));
 
-        CallToolResult result = getTool("map_get_all").call().apply(null,
+        CallToolResult result = callTool("map_get_all",
                 Map.of("mapName", "test-map", "keys", List.of("user:1", "user:3", "user:4")));
 
         assertFalse(result.isError());
@@ -155,20 +160,20 @@ class MapToolsIntegrationTest {
     @Test
     @Order(8)
     void mapClearRemovesAll() {
-        CallToolResult result = getTool("map_clear").call().apply(null,
+        CallToolResult result = callTool("map_clear",
                 Map.of("mapName", "test-map", "confirm", true));
 
         assertFalse(result.isError());
 
         // Verify empty
-        CallToolResult sizeResult = getTool("map_size").call().apply(null,
+        CallToolResult sizeResult = callTool("map_size",
                 Map.of("mapName", "test-map"));
         assertTrue(getResultText(sizeResult).contains("0"));
     }
 
     @Test
     void mapClearRequiresConfirmation() {
-        CallToolResult result = getTool("map_clear").call().apply(null,
+        CallToolResult result = callTool("map_clear",
                 Map.of("mapName", "test-map"));
 
         assertTrue(result.isError());
