@@ -48,7 +48,7 @@ Claude Desktop communicates with MCP servers over stdio, so we use [`mcp-remote`
 
 > `mcp-remote` is auto-installed on first run via `npx -y`. If you already have other entries in `mcpServers`, merge the `"hazelcast"` key into the existing object.
 
-**Step 2:** Restart Claude Desktop (fully quit and reopen). Look for the hammer icon in the chat input — click it to verify 15 Hazelcast tools are listed.
+**Step 2:** Restart Claude Desktop (fully quit and reopen). Look for the hammer icon in the chat input — click it to verify 57 Hazelcast tools are listed.
 
 **Troubleshooting:**
 
@@ -192,10 +192,18 @@ The Streamable HTTP endpoint at `http://localhost:3000/mcp` implements MCP proto
 
 ## Features
 
-**Tools** (15 operations AI agents can invoke):
-- **IMap CRUD**: `map_get`, `map_put`, `map_delete`, `map_get_all`, `map_put_all`, `map_size`, `map_keys`, `map_values`, `map_contains_key`, `map_clear`
-- **SQL**: `sql_execute` — SELECT, INSERT, UPDATE, DELETE with parameterized queries and pagination
-- **VectorCollection**: `vector_search`, `vector_put`, `vector_get`, `vector_delete`
+**Tools** (57 operations AI agents can invoke):
+- **Cluster Discovery**: `list_structures` — List all distributed objects in the cluster (solves the "what maps exist?" problem)
+- **IMap** (14 tools): `map_get`, `map_put`, `map_delete`, `map_get_all`, `map_put_all`, `map_size`, `map_keys`, `map_values`, `map_contains_key`, `map_clear`, `map_put_if_absent`, `map_replace`, `map_entry_set`
+- **SQL** (4 tools): `sql_execute`, `sql_create_mapping`, `sql_drop_mapping`, `sql_show_mappings`
+- **VectorCollection** (4 tools): `vector_search`, `vector_put`, `vector_get`, `vector_delete`
+- **IQueue** (6 tools): `queue_offer`, `queue_poll`, `queue_peek`, `queue_size`, `queue_drain`, `queue_clear`
+- **IList** (5 tools): `list_add`, `list_get`, `list_remove`, `list_size`, `list_sublist`
+- **ISet** (5 tools): `set_add`, `set_remove`, `set_contains`, `set_size`, `set_get_all`
+- **MultiMap** (7 tools): `multimap_put`, `multimap_get`, `multimap_remove`, `multimap_keys`, `multimap_values`, `multimap_size`, `multimap_value_count`
+- **AtomicLong** (5 tools): `atomic_get`, `atomic_set`, `atomic_increment`, `atomic_decrement`, `atomic_compare_and_set` (requires CP Subsystem)
+- **ITopic** (2 tools): `topic_publish`, `topic_info`
+- **Ringbuffer** (5 tools): `ringbuffer_add`, `ringbuffer_read`, `ringbuffer_read_many`, `ringbuffer_size`, `ringbuffer_capacity`
 
 **Resources** (read-only cluster context):
 - `hazelcast://cluster/info` — Cluster name, version, member list
@@ -336,6 +344,13 @@ access:
   allowlist:
     maps: ["session-cache", "user-profiles"]
     vectors: ["document-embeddings"]
+    queues: ["task-queue"]
+    lists: []       # empty = allow all lists
+    sets: []        # empty = allow all sets
+    multimaps: []
+    topics: []
+    ringbuffers: []
+    atomics: []
   operations:
     sql: true
     write: false   # read-only mode
@@ -349,10 +364,10 @@ AI Agent (Claude, Cursor, etc.)
     │ MCP Protocol (stdio or Streamable HTTP)
     ▼
 Hazelcast Client MCP Server
-    ├── Tool Registry (map_*, sql_*, vector_*)
+    ├── Tool Registry (map_*, sql_*, vector_*, queue_*, list_*, set_*, multimap_*, atomic_*, topic_*, ringbuffer_*)
     ├── Resource Provider (cluster info, structures)
     ├── Prompt Templates (cache-lookup, data-exploration)
-    ├── Access Controller (allowlist/denylist)
+    ├── Access Controller (allowlist/denylist per data structure type)
     ├── Transport Layer (stdio / Streamable HTTP / legacy SSE via Jetty 12)
     └── Hazelcast Client Adapter
             │ Hazelcast Binary Protocol
@@ -374,7 +389,7 @@ Hazelcast Client MCP Server
 
 ## Known Issues
 
-- **Claude doesn't know map names by default.** The Hazelcast client API has no "list all maps" operation. Tell Claude the map names in your first message, or use the `hazelcast://structures/list` resource if your MCP client supports resources.
+- **Claude can now discover data structures.** Use the `list_structures` tool to see all maps, queues, lists, sets, topics, and other distributed objects in the cluster. You can also use the `hazelcast://structures/list` resource if your MCP client supports resources.
 - **Jackson 3.x classpath conflict.** MCP SDK 1.0.0 transitively includes `mcp-json-jackson3` which brings Jackson 3.x onto the classpath, causing `NoSuchFieldError: POJO` at runtime. This project explicitly excludes `mcp-json-jackson3` in `pom.xml` and uses `mcp-json-jackson2` only. If you fork or upgrade, make sure this exclusion stays in place.
 
 ## License

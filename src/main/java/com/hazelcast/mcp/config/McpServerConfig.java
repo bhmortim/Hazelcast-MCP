@@ -201,6 +201,12 @@ public class McpServerConfig {
         private List<String> maps = List.of();
         private List<String> queues = List.of();
         private List<String> vectors = List.of();
+        private List<String> lists = List.of();
+        private List<String> sets = List.of();
+        private List<String> multimaps = List.of();
+        private List<String> topics = List.of();
+        private List<String> ringbuffers = List.of();
+        private List<String> atomics = List.of();
 
         public List<String> getMaps() { return maps; }
         public void setMaps(List<String> maps) { this.maps = maps; }
@@ -208,13 +214,46 @@ public class McpServerConfig {
         public void setQueues(List<String> queues) { this.queues = queues; }
         public List<String> getVectors() { return vectors; }
         public void setVectors(List<String> vectors) { this.vectors = vectors; }
+        public List<String> getLists() { return lists; }
+        public void setLists(List<String> lists) { this.lists = lists; }
+        public List<String> getSets() { return sets; }
+        public void setSets(List<String> sets) { this.sets = sets; }
+        public List<String> getMultimaps() { return multimaps; }
+        public void setMultimaps(List<String> multimaps) { this.multimaps = multimaps; }
+        public List<String> getTopics() { return topics; }
+        public void setTopics(List<String> topics) { this.topics = topics; }
+        public List<String> getRingbuffers() { return ringbuffers; }
+        public void setRingbuffers(List<String> ringbuffers) { this.ringbuffers = ringbuffers; }
+        public List<String> getAtomics() { return atomics; }
+        public void setAtomics(List<String> atomics) { this.atomics = atomics; }
     }
 
     public static class DenylistConfig {
         private List<String> maps = List.of();
+        private List<String> queues = List.of();
+        private List<String> lists = List.of();
+        private List<String> sets = List.of();
+        private List<String> multimaps = List.of();
+        private List<String> topics = List.of();
+        private List<String> ringbuffers = List.of();
+        private List<String> atomics = List.of();
 
         public List<String> getMaps() { return maps; }
         public void setMaps(List<String> maps) { this.maps = maps; }
+        public List<String> getQueues() { return queues; }
+        public void setQueues(List<String> queues) { this.queues = queues; }
+        public List<String> getLists() { return lists; }
+        public void setLists(List<String> lists) { this.lists = lists; }
+        public List<String> getSets() { return sets; }
+        public void setSets(List<String> sets) { this.sets = sets; }
+        public List<String> getMultimaps() { return multimaps; }
+        public void setMultimaps(List<String> multimaps) { this.multimaps = multimaps; }
+        public List<String> getTopics() { return topics; }
+        public void setTopics(List<String> topics) { this.topics = topics; }
+        public List<String> getRingbuffers() { return ringbuffers; }
+        public void setRingbuffers(List<String> ringbuffers) { this.ringbuffers = ringbuffers; }
+        public List<String> getAtomics() { return atomics; }
+        public void setAtomics(List<String> atomics) { this.atomics = atomics; }
     }
 
     public static class OperationsConfig {

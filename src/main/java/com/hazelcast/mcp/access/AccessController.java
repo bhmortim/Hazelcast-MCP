@@ -35,6 +35,55 @@ public class AccessController {
     }
 
     /**
+     * Check if a queue is accessible.
+     */
+    public boolean isQueueAccessible(String queueName) {
+        return isStructureAccessible(queueName, "queue");
+    }
+
+    /**
+     * Check if a list is accessible.
+     */
+    public boolean isListAccessible(String listName) {
+        return isStructureAccessible(listName, "list");
+    }
+
+    /**
+     * Check if a set is accessible.
+     */
+    public boolean isSetAccessible(String setName) {
+        return isStructureAccessible(setName, "set");
+    }
+
+    /**
+     * Check if a MultiMap is accessible.
+     */
+    public boolean isMultiMapAccessible(String multiMapName) {
+        return isStructureAccessible(multiMapName, "multimap");
+    }
+
+    /**
+     * Check if a topic is accessible.
+     */
+    public boolean isTopicAccessible(String topicName) {
+        return isStructureAccessible(topicName, "topic");
+    }
+
+    /**
+     * Check if a ringbuffer is accessible.
+     */
+    public boolean isRingbufferAccessible(String ringbufferName) {
+        return isStructureAccessible(ringbufferName, "ringbuffer");
+    }
+
+    /**
+     * Check if an atomic long is accessible.
+     */
+    public boolean isAtomicAccessible(String atomicName) {
+        return isStructureAccessible(atomicName, "atomic");
+    }
+
+    /**
      * Check if write operations are allowed.
      */
     public boolean isWriteAllowed() {
@@ -86,6 +135,12 @@ public class AccessController {
                 case "map" -> accessConfig.getAllowlist().getMaps();
                 case "vector" -> accessConfig.getAllowlist().getVectors();
                 case "queue" -> accessConfig.getAllowlist().getQueues();
+                case "list" -> accessConfig.getAllowlist().getLists();
+                case "set" -> accessConfig.getAllowlist().getSets();
+                case "multimap" -> accessConfig.getAllowlist().getMultimaps();
+                case "topic" -> accessConfig.getAllowlist().getTopics();
+                case "ringbuffer" -> accessConfig.getAllowlist().getRingbuffers();
+                case "atomic" -> accessConfig.getAllowlist().getAtomics();
                 default -> List.of();
             };
             return allowed.isEmpty() || allowed.contains(name);
@@ -94,6 +149,13 @@ public class AccessController {
         if ("denylist".equalsIgnoreCase(mode)) {
             List<String> denied = switch (type) {
                 case "map" -> accessConfig.getDenylist().getMaps();
+                case "queue" -> accessConfig.getDenylist().getQueues();
+                case "list" -> accessConfig.getDenylist().getLists();
+                case "set" -> accessConfig.getDenylist().getSets();
+                case "multimap" -> accessConfig.getDenylist().getMultimaps();
+                case "topic" -> accessConfig.getDenylist().getTopics();
+                case "ringbuffer" -> accessConfig.getDenylist().getRingbuffers();
+                case "atomic" -> accessConfig.getDenylist().getAtomics();
                 default -> List.of();
             };
             return !denied.contains(name);
@@ -104,7 +166,9 @@ public class AccessController {
 
     private boolean isWriteOperation(String operation) {
         return switch (operation) {
-            case "put", "delete", "clear", "put_all" -> true;
+            case "put", "delete", "clear", "put_all", "put_if_absent", "replace",
+                 "offer", "poll", "drain", "add", "remove", "publish",
+                 "set", "increment", "decrement", "compare_and_set" -> true;
             default -> false;
         };
     }

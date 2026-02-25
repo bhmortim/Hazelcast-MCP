@@ -9,6 +9,12 @@ import com.hazelcast.mcp.resources.ClusterResources;
 import com.hazelcast.mcp.tools.MapTools;
 import com.hazelcast.mcp.tools.SqlTools;
 import com.hazelcast.mcp.tools.VectorTools;
+import com.hazelcast.mcp.tools.QueueTools;
+import com.hazelcast.mcp.tools.CollectionTools;
+import com.hazelcast.mcp.tools.MultiMapTools;
+import com.hazelcast.mcp.tools.AtomicTools;
+import com.hazelcast.mcp.tools.TopicTools;
+import com.hazelcast.mcp.tools.RingbufferTools;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.modelcontextprotocol.json.jackson2.JacksonMcpJsonMapper;
 import io.modelcontextprotocol.server.McpServer;
@@ -69,6 +75,12 @@ public class HazelcastMcpServer {
             MapTools mapTools = new MapTools(client, accessController);
             SqlTools sqlTools = new SqlTools(client, accessController);
             VectorTools vectorTools = new VectorTools(client, accessController);
+            QueueTools queueTools = new QueueTools(client, accessController);
+            CollectionTools collectionTools = new CollectionTools(client, accessController);
+            MultiMapTools multiMapTools = new MultiMapTools(client, accessController);
+            AtomicTools atomicTools = new AtomicTools(client, accessController);
+            TopicTools topicTools = new TopicTools(client, accessController);
+            RingbufferTools ringbufferTools = new RingbufferTools(client, accessController);
             ClusterResources clusterResources = new ClusterResources(connectionManager);
             BuiltInPrompts builtInPrompts = new BuiltInPrompts(config.getMcp().getPrompts());
 
@@ -77,6 +89,12 @@ public class HazelcastMcpServer {
             allTools.addAll(mapTools.getToolSpecifications());
             allTools.addAll(sqlTools.getToolSpecifications());
             allTools.addAll(vectorTools.getToolSpecifications());
+            allTools.addAll(queueTools.getToolSpecifications());
+            allTools.addAll(collectionTools.getToolSpecifications());
+            allTools.addAll(multiMapTools.getToolSpecifications());
+            allTools.addAll(atomicTools.getToolSpecifications());
+            allTools.addAll(topicTools.getToolSpecifications());
+            allTools.addAll(ringbufferTools.getToolSpecifications());
 
             List<McpServerFeatures.SyncResourceSpecification> allResources = new ArrayList<>();
             allResources.addAll(clusterResources.getResourceSpecifications());

@@ -38,7 +38,12 @@ public class SqlTools {
     }
 
     public List<McpServerFeatures.SyncToolSpecification> getToolSpecifications() {
-        return List.of(sqlExecute());
+        return List.of(
+                sqlExecute(),
+                sqlCreateMapping(),
+                sqlDropMapping(),
+                sqlShowMappings()
+        );
     }
 
     private McpServerFeatures.SyncToolSpecification sqlExecute() {
@@ -132,6 +137,140 @@ public class SqlTools {
                         }
                     } catch (Exception e) {
                         return errorResult(ErrorTranslator.translate(e, "sql_execute", client));
+                    }
+                }
+        );
+    }
+
+    private McpServerFeatures.SyncToolSpecification sqlCreateMapping() {
+        String schema = """
+                {
+                  "type": "object",
+                  "properties": {
+                    "mappingName": {
+                      "type": "string",
+                      "description": "Name of the mapping to create"
+                    },
+                    "mapName": {
+                      "type": "string",
+                      "description": "Name of the external IMap"
+                    },
+                    "keyFormat": {
+                      "type": "string",
+                      "description": "Key format (e.g., 'varchar')"
+                    },
+                    "valueFormat": {
+                      "type": "string",
+                      "description": "Value format (e.g., 'json')"
+                    }
+                  },
+                  "required": ["mappingName", "mapName", "keyFormat", "valueFormat"]
+                }
+                """;
+        return new McpServerFeatures.SyncToolSpecification(
+                Tool.builder().name("sql_create_mapping")
+                        .description("Create a SQL mapping for an external IMap")
+                        .inputSchema(JSON_MAPPER, schema).build(),
+                (exchange, request) -> {
+                    Map<String, Object> args = request.arguments();
+                    String mappingName = (String) args.get("mappingName");
+                    String mapName = (String) args.get("mapName");
+                    String keyFormat = (String) args.get("keyFormat");
+                    String valueFormat = (String) args.get("valueFormat");
+
+                    try {
+                        if (!accessController.isSqlAllowed()) {
+                            return errorResult(accessController.getDenialMessage("sql", ""));
+                        }
+                        if (!accessController.isWriteAllowed()) {
+                            return errorResult("Write SQL operations (CREATE MAPPING) are disabled. "
+                                    + "Set 'access.operations.write: true' in hazelcast-mcp.yaml to enable.");
+                        }
+
+                        String sql = String.format(
+                                "CREATE MAPPING IF NOT EXISTS \"%s\" EXTERNAL NAME \"%s\" TYPE IMap OPTIONS ('keyFormat'='%s', 'valueFormat'='%s')",
+                                mappingName, mapName, keyFormat, valueFormat
+                        );
+
+                        try (SqlResult result = client.getSql().execute(sql)) {
+                            return textResult(String.format("Mapping created successfully.%nSQL: %s", sql));
+                        }
+                    } catch (Exception e) {
+                        return errorResult(ErrorTranslator.translate(e, "sql_create_mapping", client));
+                    }
+                }
+        );
+    }
+
+    private McpServerFeatures.SyncToolSpecification sqlDropMapping() {
+        String schema = """
+                {
+                  "type": "object",
+                  "properties": {
+                    "mappingName": {
+                      "type": "string",
+                      "description": "Name of the mapping to drop"
+                    }
+                  },
+                  "required": ["mappingName"]
+                }
+                """;
+        return new McpServerFeatures.SyncToolSpecification(
+                Tool.builder().name("sql_drop_mapping")
+                        .description("Drop a SQL mapping")
+                        .inputSchema(JSON_MAPPER, schema).build(),
+                (exchange, request) -> {
+                    Map<String, Object> args = request.arguments();
+                    String mappingName = (String) args.get("mappingName");
+
+                    try {
+                        if (!accessController.isSqlAllowed()) {
+                            return errorResult(accessController.getDenialMessage("sql", ""));
+                        }
+                        if (!accessController.isWriteAllowed()) {
+                            return errorResult("Write SQL operations (DROP MAPPING) are disabled. "
+                                    + "Set 'access.operations.write: true' in hazelcast-mcp.yaml to enable.");
+                        }
+
+                        String sql = String.format("DROP MAPPING IF EXISTS \"%s\"", mappingName);
+
+                        try (SqlResult result = client.getSql().execute(sql)) {
+                            return textResult(String.format("Mapping dropped successfully.%nSQL: %s", sql));
+                        }
+                    } catch (Exception e) {
+                        return errorResult(ErrorTranslator.translate(e, "sql_drop_mapping", client));
+                    }
+                }
+        );
+    }
+
+    private McpServerFeatures.SyncToolSpecification sqlShowMappings() {
+        String schema = """
+                {
+                  "type": "object",
+                  "properties": {}
+                }
+                """;
+        return new McpServerFeatures.SyncToolSpecification(
+                Tool.builder().name("sql_show_mappings")
+                        .description("List all SQL mappings")
+                        .inputSchema(JSON_MAPPER, schema).build(),
+                (exchange, request) -> {
+                    try {
+                        if (!accessController.isSqlAllowed()) {
+                            return errorResult(accessController.getDenialMessage("sql", ""));
+                        }
+
+                        try (SqlResult result = client.getSql().execute("SHOW MAPPINGS")) {
+                            List<String> mappings = new ArrayList<>();
+                            for (SqlRow row : result) {
+                                String mappingName = row.getObject(0).toString();
+                                mappings.add(mappingName);
+                            }
+                            return textResult(JsonSerializer.toJsonString(mappings));
+                        }
+                    } catch (Exception e) {
+                        return errorResult(ErrorTranslator.translate(e, "sql_show_mappings", client));
                     }
                 }
         );

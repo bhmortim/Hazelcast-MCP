@@ -48,9 +48,9 @@ class MapToolsTest {
     }
 
     @Test
-    void tenToolsRegistered() {
+    void fourteenToolsRegistered() {
         List<McpServerFeatures.SyncToolSpecification> specs = mapTools.getToolSpecifications();
-        assertEquals(10, specs.size());
+        assertEquals(14, specs.size());
     }
 
     @Test
@@ -69,6 +69,10 @@ class MapToolsTest {
         assertTrue(names.contains("map_values"));
         assertTrue(names.contains("map_contains_key"));
         assertTrue(names.contains("map_clear"));
+        assertTrue(names.contains("list_structures"));
+        assertTrue(names.contains("map_put_if_absent"));
+        assertTrue(names.contains("map_replace"));
+        assertTrue(names.contains("map_entry_set"));
     }
 
     @Test
