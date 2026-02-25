@@ -2,10 +2,13 @@ package com.hazelcast.mcp.connection;
 
 import com.hazelcast.client.HazelcastClient;
 import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.config.SSLConfig;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.mcp.config.McpServerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Properties;
 
 /**
  * Manages the Hazelcast client connection lifecycle.
@@ -106,6 +109,27 @@ public class HazelcastConnectionManager implements AutoCloseable {
         if (security.getUsername() != null && !security.getUsername().isEmpty()) {
             clientConfig.getSecurityConfig()
                     .setUsernamePasswordIdentityConfig(security.getUsername(), security.getPassword());
+        }
+
+        // TLS / SSL
+        McpServerConfig.TlsConfig tls = config.getHazelcast().getTls();
+        if (tls.isEnabled()) {
+            logger.info("TLS enabled with protocol={}, mutualAuth={}", tls.getProtocol(), tls.isMutualAuth());
+            Properties sslProps = new Properties();
+            sslProps.setProperty("javax.net.ssl.keyStore", tls.getKeystore());
+            sslProps.setProperty("javax.net.ssl.keyStorePassword", tls.getKeystorePassword());
+            sslProps.setProperty("javax.net.ssl.keyStoreType", tls.getKeystoreType());
+            sslProps.setProperty("javax.net.ssl.trustStore", tls.getTruststore());
+            sslProps.setProperty("javax.net.ssl.trustStorePassword", tls.getTruststorePassword());
+            sslProps.setProperty("javax.net.ssl.trustStoreType", tls.getTruststoreType());
+            sslProps.setProperty("protocol", tls.getProtocol());
+            if (tls.isMutualAuth()) {
+                sslProps.setProperty("javax.net.ssl.mutualAuthentication", "REQUIRED");
+            }
+            SSLConfig sslConfig = new SSLConfig()
+                    .setEnabled(true)
+                    .setProperties(sslProps);
+            clientConfig.getNetworkConfig().setSSLConfig(sslConfig);
         }
 
         // Connection retry

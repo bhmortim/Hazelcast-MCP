@@ -57,7 +57,7 @@ public class HazelcastMcpServer {
             SqlTools sqlTools = new SqlTools(client, accessController);
             VectorTools vectorTools = new VectorTools(client, accessController);
             ClusterResources clusterResources = new ClusterResources(connectionManager);
-            BuiltInPrompts builtInPrompts = new BuiltInPrompts();
+            BuiltInPrompts builtInPrompts = new BuiltInPrompts(config.getMcp().getPrompts());
 
             // 5. Collect all specifications
             List<McpServerFeatures.SyncToolSpecification> allTools = new ArrayList<>();

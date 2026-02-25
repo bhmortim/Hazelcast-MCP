@@ -1,22 +1,79 @@
 package com.hazelcast.mcp.prompts;
 
+import com.hazelcast.mcp.config.McpServerConfig;
 import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpSchema.*;
 import io.modelcontextprotocol.server.McpServerFeatures;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Built-in MCP Prompt templates for common Hazelcast interaction patterns (P0-10).
  * Ships with: cache-lookup, data-exploration, vector-search.
+ * Also loads custom prompts from YAML configuration.
  */
 public class BuiltInPrompts {
 
+    private static final Logger logger = LoggerFactory.getLogger(BuiltInPrompts.class);
+
+    private final List<McpServerConfig.CustomPromptConfig> customPrompts;
+
+    public BuiltInPrompts() {
+        this.customPrompts = List.of();
+    }
+
+    public BuiltInPrompts(List<McpServerConfig.CustomPromptConfig> customPrompts) {
+        this.customPrompts = customPrompts != null ? customPrompts : List.of();
+    }
+
     public List<McpServerFeatures.SyncPromptSpecification> getPromptSpecifications() {
-        return List.of(
-                cacheLookup(),
-                dataExploration(),
-                vectorSearch()
+        List<McpServerFeatures.SyncPromptSpecification> specs = new ArrayList<>();
+        // Built-in prompts
+        specs.add(cacheLookup());
+        specs.add(dataExploration());
+        specs.add(vectorSearch());
+
+        // Custom prompts from config
+        for (McpServerConfig.CustomPromptConfig custom : customPrompts) {
+            try {
+                specs.add(buildCustomPrompt(custom));
+                logger.info("Loaded custom prompt: {}", custom.getName());
+            } catch (Exception e) {
+                logger.warn("Failed to load custom prompt '{}': {}", custom.getName(), e.getMessage());
+            }
+        }
+        return specs;
+    }
+
+    /**
+     * Build an MCP prompt specification from a YAML-defined custom prompt config.
+     */
+    private McpServerFeatures.SyncPromptSpecification buildCustomPrompt(McpServerConfig.CustomPromptConfig config) {
+        List<PromptArgument> args = new ArrayList<>();
+        for (McpServerConfig.PromptArgumentConfig argConfig : config.getArguments()) {
+            args.add(new PromptArgument(argConfig.getName(), argConfig.getDescription(), argConfig.isRequired()));
+        }
+
+        return new McpServerFeatures.SyncPromptSpecification(
+                new Prompt(config.getName(), config.getDescription(), args),
+                (exchange, request) -> {
+                    // Substitute {{argName}} placeholders in the template
+                    String expanded = config.getTemplate();
+                    for (McpServerConfig.PromptArgumentConfig argConfig : config.getArguments()) {
+                        String value = (String) request.arguments()
+                                .getOrDefault(argConfig.getName(), argConfig.getDefaultValue());
+                        if (value == null) value = "";
+                        expanded = expanded.replace("{{" + argConfig.getName() + "}}", value);
+                    }
+
+                    return new GetPromptResult(
+                            config.getDescription(),
+                            List.of(new PromptMessage(Role.USER, new TextContent(expanded)))
+                    );
+                }
         );
     }
 

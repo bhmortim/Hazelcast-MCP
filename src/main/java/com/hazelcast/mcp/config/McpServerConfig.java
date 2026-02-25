@@ -71,14 +71,32 @@ public class McpServerConfig {
     public static class TlsConfig {
         private boolean enabled = false;
         private String keystore = "";
+        private String keystorePassword = "";
+        private String keystoreType = "JKS";
         private String truststore = "";
+        private String truststorePassword = "";
+        private String truststoreType = "JKS";
+        private String protocol = "TLSv1.3";
+        private boolean mutualAuth = false;
 
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }
         public String getKeystore() { return keystore; }
         public void setKeystore(String keystore) { this.keystore = keystore; }
+        public String getKeystorePassword() { return keystorePassword; }
+        public void setKeystorePassword(String keystorePassword) { this.keystorePassword = keystorePassword; }
+        public String getKeystoreType() { return keystoreType; }
+        public void setKeystoreType(String keystoreType) { this.keystoreType = keystoreType; }
         public String getTruststore() { return truststore; }
         public void setTruststore(String truststore) { this.truststore = truststore; }
+        public String getTruststorePassword() { return truststorePassword; }
+        public void setTruststorePassword(String truststorePassword) { this.truststorePassword = truststorePassword; }
+        public String getTruststoreType() { return truststoreType; }
+        public void setTruststoreType(String truststoreType) { this.truststoreType = truststoreType; }
+        public String getProtocol() { return protocol; }
+        public void setProtocol(String protocol) { this.protocol = protocol; }
+        public boolean isMutualAuth() { return mutualAuth; }
+        public void setMutualAuth(boolean mutualAuth) { this.mutualAuth = mutualAuth; }
     }
 
     public static class SerializationConfig {
@@ -97,9 +115,44 @@ public class McpServerConfig {
 
     public static class McpConfig {
         private ServerInfo server = new ServerInfo();
+        private List<CustomPromptConfig> prompts = List.of();
 
         public ServerInfo getServer() { return server; }
         public void setServer(ServerInfo server) { this.server = server; }
+        public List<CustomPromptConfig> getPrompts() { return prompts; }
+        public void setPrompts(List<CustomPromptConfig> prompts) { this.prompts = prompts; }
+    }
+
+    public static class CustomPromptConfig {
+        private String name = "";
+        private String description = "";
+        private String template = "";
+        private List<PromptArgumentConfig> arguments = List.of();
+
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+        public String getDescription() { return description; }
+        public void setDescription(String description) { this.description = description; }
+        public String getTemplate() { return template; }
+        public void setTemplate(String template) { this.template = template; }
+        public List<PromptArgumentConfig> getArguments() { return arguments; }
+        public void setArguments(List<PromptArgumentConfig> arguments) { this.arguments = arguments; }
+    }
+
+    public static class PromptArgumentConfig {
+        private String name = "";
+        private String description = "";
+        private boolean required = false;
+        private String defaultValue = "";
+
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+        public String getDescription() { return description; }
+        public void setDescription(String description) { this.description = description; }
+        public boolean isRequired() { return required; }
+        public void setRequired(boolean required) { this.required = required; }
+        public String getDefaultValue() { return defaultValue; }
+        public void setDefaultValue(String defaultValue) { this.defaultValue = defaultValue; }
     }
 
     public static class ServerInfo {
