@@ -2,84 +2,33 @@
 
 An open-source [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server that wraps the Hazelcast Java Client, enabling AI agents (Claude, Cursor, VS Code Copilot, custom LangChain agents) to interact with Hazelcast clusters via natural language tools.
 
+> **Verified working** with MCP SDK 1.0.0, Hazelcast 5.6, Claude Desktop + `mcp-remote 0.1.37`, and MCP protocol 2025-06-18 (Streamable HTTP).
+
 ## Docker Quickstart
 
 The fastest way to try the MCP server — zero setup, includes demo data:
 
 ```bash
-docker compose up
+# Linux / macOS
+HAZELCAST_MCP_TRANSPORT=sse docker compose up --build
+
+# Windows PowerShell
+$env:HAZELCAST_MCP_TRANSPORT="sse"; docker compose up --build
 ```
 
 This spins up:
 
 1. **Hazelcast** — Single node cluster with Jet enabled
 2. **Demo Data Loader + Live Feeds** — Seeds financial data, then streams live crypto/stock/news
-3. **MCP Server** — Connected to Hazelcast, ready for AI agent integration
+3. **MCP Server** — Connected to Hazelcast, Streamable HTTP endpoint at `http://localhost:3000/mcp`
 
-### What's in the demo data?
+> **Tip:** Use `HAZELCAST_MCP_TRANSPORT=sse` to start the HTTP transport. Without it, the server defaults to stdio (only useful for `docker exec` scenarios).
 
-The loader populates four IMaps with a financial trading dataset, then runs Jet batch jobs:
+### Connect Claude Desktop
 
-| IMap | Contents | Records |
-|------|----------|---------|
-| `market-data` | Live quotes — bid, ask, last, volume, change | 12 symbols |
-| `trades` | Trade blotter — symbol, side, qty, price, account | ~80 trades |
-| `positions` | Portfolio positions — computed from trades, with P&L | ~15 positions |
-| `risk-metrics` | Risk aggregations — VaR, Sharpe, exposure per account | 3 accounts |
+Claude Desktop communicates with MCP servers over stdio, so we use [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) as a stdio-to-HTTP bridge (requires [Node.js](https://nodejs.org/) 18+).
 
-Symbols include AAPL, GOOGL, MSFT, AMZN, TSLA, JPM, GS, NVDA, META, NFLX, BAC, INTC across three hedge fund / asset management accounts.
-
-### Live Data Feeds
-
-After loading seed data, the demo container starts streaming **real-time data** from public APIs:
-
-| Feed | API | Key Required? | Polling Interval | IMap |
-|------|-----|---------------|-----------------|------|
-| **Crypto** | [CoinGecko](https://www.coingecko.com/en/api) | No | 30 seconds | `crypto` |
-| **Stocks** | [Alpha Vantage](https://www.alphavantage.co/support/#api-key) | Yes (free) | 5 minutes | `stocks` |
-| **News** | [NewsAPI](https://newsapi.org/register) | Yes (free) | 10 minutes | `news` |
-| **Insights** | Jet pipeline (internal) | No | 5 minutes | `market-insights` |
-
-**Crypto works out of the box** — no API keys needed. Stocks and news are optional enrichments.
-
-To enable all feeds, pass your free API keys:
-
-```bash
-ALPHA_VANTAGE_API_KEY=your_key NEWS_API_KEY=your_key docker compose up
-```
-
-**Get free API keys:**
-- Alpha Vantage: [alphavantage.co/support/#api-key](https://www.alphavantage.co/support/#api-key) (25 requests/day)
-- NewsAPI: [newsapi.org/register](https://newsapi.org/register) (100 requests/day)
-
-#### Live data prompts for Claude
-
-```
-"What's Bitcoin trading at right now?"
-"Show me all crypto prices"
-"What are the latest market headlines?"
-"How is the market sentiment today?"
-"Compare crypto vs stock performance"
-"Who are the biggest movers right now?"
-"Give me a full market briefing"
-```
-
-### Connect Claude Desktop (Docker + Streamable HTTP)
-
-The easiest way to connect Claude Desktop to the Docker setup is via Streamable HTTP transport.
-Claude Desktop only speaks stdio to child processes, so we use `mcp-remote` as a
-stdio-to-HTTP bridge (requires [Node.js](https://nodejs.org/) 18+).
-
-**Step 1:** Start the stack in HTTP mode:
-```bash
-# Linux / macOS
-HAZELCAST_MCP_TRANSPORT=sse docker compose up
-
-# Windows PowerShell
-$env:HAZELCAST_MCP_TRANSPORT="sse"; docker compose up
-```
-
-**Step 2:** Add to your Claude Desktop config:
+**Step 1:** Add to your Claude Desktop config:
 
 | OS | Config file path |
 |----|-----------------|
@@ -97,41 +46,129 @@ $env:HAZELCAST_MCP_TRANSPORT="sse"; docker compose up
 }
 ```
 
-> **Note:** `mcp-remote` is auto-installed on first run via `npx -y`. If you already
-> have other entries in `mcpServers`, merge the `"hazelcast"` key into the existing object.
+> `mcp-remote` is auto-installed on first run via `npx -y`. If you already have other entries in `mcpServers`, merge the `"hazelcast"` key into the existing object.
 
-**Step 3:** Restart Claude Desktop (fully quit and reopen). Look for the hammer icon
-in the chat input — click it to verify the Hazelcast tools are listed.
+**Step 2:** Restart Claude Desktop (fully quit and reopen). Look for the hammer icon in the chat input — click it to verify 15 Hazelcast tools are listed.
 
 **Troubleshooting:**
-- **No hammer icon?** Make sure Docker is running and the MCP server container is healthy
-  (`docker compose ps`). The HTTP endpoint must be available _before_ Claude Desktop starts.
-- **JSON parse error on launch?** Validate your config at [jsonlint.com](https://jsonlint.com/).
-  A common mistake is a missing comma between `"preferences"` and `"mcpServers"` blocks.
-- **Windows `HAZELCAST_MCP_TRANSPORT=sse` not recognized?** PowerShell requires the
-  `$env:VAR="value"; command` syntax shown above. The Unix `VAR=value command` form
-  only works in bash/zsh.
 
-### Try these prompts in Claude
+- **No hammer icon?** Make sure Docker is running and the MCP server container is healthy (`docker compose ps`). The HTTP endpoint must be available _before_ Claude Desktop starts.
+- **JSON parse error on launch?** Validate your config at [jsonlint.com](https://jsonlint.com/). A common mistake is a missing comma between `"preferences"` and `"mcpServers"` blocks.
+- **Windows `HAZELCAST_MCP_TRANSPORT=sse` not recognized?** PowerShell requires the `$env:VAR="value"; command` syntax shown above. The Unix `VAR=value command` form only works in bash/zsh.
 
-Once connected, try asking Claude:
+### What's in the demo data?
+
+The loader populates four IMaps with a financial trading dataset, then starts live streaming feeds.
+
+#### Static seed data (loaded at startup)
+
+| IMap | Keys | Contents | Records |
+|------|------|----------|---------|
+| `market-data` | Ticker symbols (`AAPL`, `GOOGL`, `MSFT`, ...) | Bid, ask, last, open, high, low, volume, change, changePct, exchange, timestamp | 12 symbols |
+| `trades` | Trade IDs (`TRD-00001` through `TRD-00080`) | Symbol, side (BUY/SELL), quantity, price, notional, account, status, timestamp | ~80 trades |
+| `positions` | Account-symbol (`ACCT-HF-001-AAPL`, ...) | Net quantity, side (LONG/SHORT), avgCost, marketPrice, unrealizedPnL | ~15 positions |
+| `risk-metrics` | Account IDs (`ACCT-HF-001`, `ACCT-HF-002`, `ACCT-AM-003`) | TotalExposure, netExposure, totalPnL, VaR95, VaR99, sharpeRatio, maxDrawdown, beta | 3 accounts |
+
+**Symbols:** AAPL, GOOGL, MSFT, AMZN, TSLA, JPM, GS, NVDA, META, NFLX, BAC, INTC
+
+**Accounts:** ACCT-HF-001, ACCT-HF-002 (hedge funds), ACCT-AM-003 (asset management)
+
+#### Live data feeds (streaming continuously)
+
+| IMap | Keys | API | Key Required? | Polling Interval |
+|------|------|-----|---------------|-----------------|
+| `crypto` | Ticker symbols (`BTC`, `ETH`, `SOL`, ...) | [CoinGecko](https://www.coingecko.com/en/api) | No | 30 seconds |
+| `stocks` | Ticker symbols (`AAPL`, `MSFT`, ...) | [Alpha Vantage](https://www.alphavantage.co/support/#api-key) | Yes (free) | 5 minutes |
+| `news` | URL hashes (`NEWS-{hash}`) | [NewsAPI](https://newsapi.org/register) | Yes (free) | 10 minutes |
+| `market-insights` | Insight types (`correlation`, `sentiment`, `top-movers`, `summary`) | Jet pipeline (internal) | No | 5 minutes |
+
+**Crypto works out of the box** — no API keys needed. Stocks and news are optional enrichments.
+
+To enable all feeds:
+
+```bash
+ALPHA_VANTAGE_API_KEY=your_key NEWS_API_KEY=your_key HAZELCAST_MCP_TRANSPORT=sse docker compose up --build
+```
+
+**Get free API keys:**
+
+- Alpha Vantage: [alphavantage.co/support/#api-key](https://www.alphavantage.co/support/#api-key) (25 requests/day)
+- NewsAPI: [newsapi.org/register](https://newsapi.org/register) (100 requests/day)
+
+### Verified prompts to try
+
+These prompts have been tested end-to-end with Claude Desktop and return real results from the demo data. Claude will translate them into the appropriate MCP tool calls automatically.
+
+> **Important:** Claude doesn't know the map names upfront. For best results, tell it the map names in your first message (e.g., "The Hazelcast cluster has maps: market-data, trades, positions, risk-metrics, crypto"). After that, Claude can query them by name.
+
+#### Market data (12 stock symbols)
 
 ```
-"Show me all ticker symbols in the market-data map"
-"Get Apple's current market data"
-"Find all Tesla buy trades using SQL"
-"What's the risk profile for account ACCT-HF-001?"
-"How many open positions do we have?"
-"Show me the top 5 trades by notional value"
-"List all data structures in the cluster"
+"List all the keys in the market-data map"
+"Get the current market data for all 12 symbols in market-data"
+"What's Apple's current stock price?"
+"Show me NVIDIA's full market data"
+"Which stocks have the highest trading volume?"
 ```
 
-These map to MCP tool calls like `map/keys market-data`, `map/get trades TRD-00001`,
-`sql SELECT * FROM trades WHERE symbol='TSLA' AND side='BUY'`, etc.
+#### Trades (~80 trade records)
 
-### Connect Claude Desktop (Docker + stdio)
+```
+"How many entries are in the trades map?"
+"Show me all keys in the trades map"
+"Get the details of trade TRD-00001"
+"Find all Tesla trades using SQL: SELECT * FROM trades WHERE symbol='TSLA'"
+"Show me the top 5 trades by notional value: SELECT * FROM trades ORDER BY notional DESC LIMIT 5"
+"How many buy vs sell trades? SELECT side, COUNT(*) FROM trades GROUP BY side"
+```
 
-If you prefer stdio transport, you can use `docker exec`:
+#### Positions (portfolio holdings)
+
+```
+"List all keys in the positions map"
+"Get position ACCT-HF-001-AAPL"
+"Show me all LONG positions using SQL"
+"Which positions have the biggest unrealized P&L?"
+```
+
+#### Risk metrics (3 accounts)
+
+```
+"Get risk metrics for account ACCT-HF-001"
+"Show me risk metrics for all three accounts"
+"Which account has the highest Value at Risk?"
+"Compare Sharpe ratios across all accounts"
+```
+
+#### Crypto (live — no API key needed)
+
+```
+"What's Bitcoin trading at right now?"
+"Show me all crypto prices"
+"Which crypto has the biggest 24h change?"
+"Compare BTC and ETH market caps"
+```
+
+#### Cross-asset and market insights
+
+```
+"Give me a full market briefing from market-insights"
+"How is the market sentiment today?"
+"Who are the biggest movers right now?"
+"Compare crypto vs stock performance"
+```
+
+#### SQL queries (advanced)
+
+```
+"SELECT symbol, SUM(quantity * price) as total_notional FROM trades GROUP BY symbol ORDER BY total_notional DESC"
+"SELECT account, COUNT(*) as trade_count, SUM(notional) as total_notional FROM trades GROUP BY account"
+"SELECT * FROM trades WHERE account='ACCT-HF-001' AND side='BUY' ORDER BY notional DESC LIMIT 10"
+```
+
+### Alternate transport: Docker + stdio
+
+If you prefer stdio transport without HTTP, use `docker exec`:
 
 ```json
 {
@@ -147,25 +184,11 @@ If you prefer stdio transport, you can use `docker exec`:
 }
 ```
 
-### Streamable HTTP mode (network-accessible)
+### Streamable HTTP for other MCP clients
 
-To expose the MCP server over Streamable HTTP (MCP protocol 2025-06-18):
+The Streamable HTTP endpoint at `http://localhost:3000/mcp` implements MCP protocol 2025-06-18. Any MCP client that natively supports Streamable HTTP can connect directly without the `mcp-remote` bridge.
 
-```bash
-# Linux / macOS
-HAZELCAST_MCP_TRANSPORT=sse docker compose up
-
-# Windows PowerShell
-$env:HAZELCAST_MCP_TRANSPORT="sse"; docker compose up
-```
-
-The Streamable HTTP endpoint will be available at `http://localhost:3000/mcp`. Any MCP
-client that supports Streamable HTTP can connect directly. For Claude Desktop, use the
-`mcp-remote` bridge as described above.
-
-> **Legacy SSE:** If you need the older SSE transport (protocol 2024-11-05), set
-> `transport: "sse-legacy"` in the YAML config. The SSE endpoint uses `/sse` with
-> message endpoint at `/mcp/message`.
+> **Legacy SSE:** If you need the older SSE transport (protocol 2024-11-05), set `transport: "sse-legacy"` in the YAML config. The SSE endpoint uses `/sse` with message endpoint at `/mcp/message`.
 
 ## Features
 
@@ -192,10 +215,12 @@ client that supports Streamable HTTP can connect directly. For Claude Desktop, u
 ## Quick Start (without Docker)
 
 ### Prerequisites
+
 - Java 17+
 - A running Hazelcast cluster (5.5+ / 5.6 recommended)
 
 ### Build
+
 ```bash
 ./mvnw clean package -DskipTests
 ```
@@ -228,7 +253,7 @@ access:
     clear: false  # destructive ops disabled by default
 ```
 
-### Run with Claude Desktop
+### Run with Claude Desktop (stdio)
 
 Add to your Claude Desktop MCP config (`claude_desktop_config.json`):
 
@@ -242,6 +267,29 @@ Add to your Claude Desktop MCP config (`claude_desktop_config.json`):
         "HAZELCAST_MCP_CLUSTER_NAME": "dev",
         "HAZELCAST_MCP_CLUSTER_MEMBERS": "127.0.0.1:5701"
       }
+    }
+  }
+}
+```
+
+### Run with Claude Desktop (Streamable HTTP)
+
+Start the server with HTTP transport, then use `mcp-remote` as a stdio-to-HTTP bridge (requires Node.js 18+):
+
+```bash
+# Linux / macOS
+HAZELCAST_MCP_TRANSPORT=sse java -jar hazelcast-mcp-server-1.0.0-SNAPSHOT.jar
+
+# Windows PowerShell
+$env:HAZELCAST_MCP_TRANSPORT="sse"; java -jar hazelcast-mcp-server-1.0.0-SNAPSHOT.jar
+```
+
+```json
+{
+  "mcpServers": {
+    "hazelcast": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "http://localhost:3000/mcp"]
     }
   }
 }
@@ -261,36 +309,6 @@ Add to `.cursor/mcp.json`:
   }
 }
 ```
-
-### Streamable HTTP mode with Claude Desktop
-
-For network-accessible MCP via Streamable HTTP, start the server with HTTP transport:
-
-```bash
-# Linux / macOS
-HAZELCAST_MCP_TRANSPORT=sse java -jar hazelcast-mcp-server-1.0.0-SNAPSHOT.jar
-
-# Windows PowerShell
-$env:HAZELCAST_MCP_TRANSPORT="sse"; java -jar hazelcast-mcp-server-1.0.0-SNAPSHOT.jar
-```
-
-Then configure Claude Desktop to connect via the `mcp-remote` bridge (requires Node.js 18+):
-
-```json
-{
-  "mcpServers": {
-    "hazelcast": {
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "http://localhost:3000/mcp"]
-    }
-  }
-}
-```
-
-> **Why `mcp-remote`?** Claude Desktop communicates with MCP servers over stdio only.
-> The `mcp-remote` package bridges stdio↔HTTP so Claude Desktop can reach network-based
-> MCP servers. Any MCP client that natively supports Streamable HTTP can connect directly
-> to `http://localhost:3000/mcp` without the bridge.
 
 ## Configuration Reference
 
@@ -345,12 +363,19 @@ Hazelcast Client MCP Server
 ## Technology Stack
 
 - **Language**: Java 17+
-- **MCP SDK**: [MCP Java SDK](https://github.com/modelcontextprotocol/java-sdk) v1.0.0
-- **Hazelcast Client**: Hazelcast 5.6+ (compatible with 5.5+)
+- **MCP SDK**: [MCP Java SDK](https://github.com/modelcontextprotocol/java-sdk) v1.0.0 GA (with Jackson 2.x — jackson3 excluded to prevent classpath conflicts)
+- **MCP Protocol**: 2025-06-18 (Streamable HTTP), 2024-11-05 (legacy SSE)
+- **Hazelcast Client**: Hazelcast 5.6 (compatible with 5.5+)
 - **Transport**: stdio (local), Streamable HTTP / legacy SSE via embedded Jetty 12 (Jakarta Servlet 6.1)
 - **Build**: Maven, publishes fat JAR via `maven-shade-plugin`
 - **Docker**: Multi-stage build (`eclipse-temurin:17`), Compose quickstart with demo data
 - **Live Data**: CoinGecko, Alpha Vantage, NewsAPI integration with Hazelcast Jet
+- **Tested With**: Claude Desktop + `mcp-remote` 0.1.37 on Windows and macOS
+
+## Known Issues
+
+- **Claude doesn't know map names by default.** The Hazelcast client API has no "list all maps" operation. Tell Claude the map names in your first message, or use the `hazelcast://structures/list` resource if your MCP client supports resources.
+- **Jackson 3.x classpath conflict.** MCP SDK 1.0.0 transitively includes `mcp-json-jackson3` which brings Jackson 3.x onto the classpath, causing `NoSuchFieldError: POJO` at runtime. This project explicitly excludes `mcp-json-jackson3` in `pom.xml` and uses `mcp-json-jackson2` only. If you fork or upgrade, make sure this exclusion stays in place.
 
 ## License
 
