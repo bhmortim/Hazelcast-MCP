@@ -27,3 +27,7 @@ hazelcast-mcp-server.log
 
 # Config files with secrets
 hazelcast-mcp-local.yaml
+
+# Build artifacts
+dependency-reduced-pom.xml
+.attach_pid*
