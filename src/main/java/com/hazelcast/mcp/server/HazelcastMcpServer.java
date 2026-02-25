@@ -16,9 +16,9 @@ import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.server.transport.StdioServerTransportProvider;
 import io.modelcontextprotocol.server.transport.HttpServletSseServerTransportProvider;
 import io.modelcontextprotocol.spec.McpSchema.ServerCapabilities;
+import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
+import org.eclipse.jetty.ee10.servlet.ServletHolder;
 import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.servlet.ServletContextHandler;
-import org.eclipse.jetty.servlet.ServletHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -151,6 +151,7 @@ public class HazelcastMcpServer {
         HttpServletSseServerTransportProvider sseTransport =
                 HttpServletSseServerTransportProvider.builder()
                         .objectMapper(new ObjectMapper())
+                        .messageEndpoint("/mcp/message")
                         .build();
 
         // Build MCP server with SSE transport
@@ -168,15 +169,13 @@ public class HazelcastMcpServer {
                 .prompts(prompts)
                 .build();
 
-        // Set up embedded Jetty server
+        // Set up embedded Jetty 12 server
         jettyServer = new Server(port);
 
-        ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
+        ServletContextHandler context = new ServletContextHandler();
         context.setContextPath("/");
-        jettyServer.setHandler(context);
-
-        // Register SSE transport servlet at root path
         context.addServlet(new ServletHolder("mcp-sse", sseTransport), "/*");
+        jettyServer.setHandler(context);
 
         jettyServer.start();
         logger.info("Jetty SSE server listening on {}:{}", host, port);

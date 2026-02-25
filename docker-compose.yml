@@ -7,12 +7,15 @@
 #
 # This brings up:
 #   1. A single-node Hazelcast cluster with Jet enabled
-#   2. A demo data loader that populates financial trading data, then exits
+#   2. A demo data loader + live feed streamer (seeds data, then streams live)
 #   3. The MCP server connected to Hazelcast, ready for AI agent integration
 #
 # SSE mode (network-accessible MCP):
 #   HAZELCAST_MCP_TRANSPORT=sse docker compose up
 #   → MCP SSE endpoint available at http://localhost:3000/sse
+#
+# With live stock & news feeds (optional, crypto works without keys):
+#   ALPHA_VANTAGE_API_KEY=your_key NEWS_API_KEY=your_key docker compose up
 #
 # =============================================================================
 
@@ -20,7 +23,7 @@ services:
 
   # --- Hazelcast single node ---
   hazelcast:
-    image: hazelcast/hazelcast:5.5
+    image: hazelcast/hazelcast:5.6
     container_name: hazelcast
     ports:
       - "5701:5701"
@@ -38,7 +41,7 @@ services:
     networks:
       - hazelcast-net
 
-  # --- Demo data loader (runs once, populates data, then exits) ---
+  # --- Demo data loader + live feeds (seeds static data, then streams live) ---
   demo-loader:
     build: .
     container_name: demo-loader
@@ -49,8 +52,16 @@ services:
       MAIN_CLASS: com.hazelcast.mcp.demo.DemoDataLoader
       HAZELCAST_CLUSTER_NAME: demo
       HAZELCAST_MEMBERS: hazelcast:5701
+      ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY:-}
+      NEWS_API_KEY: ${NEWS_API_KEY:-}
       JAVA_OPTS: "-Xmx256m"
-    restart: "no"
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/feeds-ready || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 15s
+    restart: unless-stopped
     networks:
       - hazelcast-net
 
@@ -62,7 +73,7 @@ services:
       hazelcast:
         condition: service_healthy
       demo-loader:
-        condition: service_completed_successfully
+        condition: service_started
     environment:
       HAZELCAST_MCP_CLUSTER_NAME: demo
       HAZELCAST_MCP_CLUSTER_MEMBERS: hazelcast:5701

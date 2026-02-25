@@ -41,7 +41,9 @@ public class HazelcastConnectionManager implements AutoCloseable {
         ClientConfig clientConfig = buildClientConfig();
         client = HazelcastClient.newHazelcastClient(clientConfig);
 
-        logger.info("Connected to Hazelcast cluster: {}", client.getCluster().getClusterState());
+        logger.info("Connected to Hazelcast cluster '{}' with {} member(s)",
+                config.getHazelcast().getCluster().getName(),
+                client.getCluster().getMembers().size());
         return client;
     }
 

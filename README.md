@@ -13,7 +13,7 @@ docker compose up
 This spins up:
 
 1. **Hazelcast** — Single node cluster with Jet enabled
-2. **Demo Data Loader** — Populates realistic financial/trading data, then exits
+2. **Demo Data Loader + Live Feeds** — Seeds financial data, then streams live crypto/stock/news
 3. **MCP Server** — Connected to Hazelcast, ready for AI agent integration
 
 ### What's in the demo data?
@@ -29,27 +29,88 @@ The loader populates four IMaps with a financial trading dataset, then runs Jet 
 
 Symbols include AAPL, GOOGL, MSFT, AMZN, TSLA, JPM, GS, NVDA, META, NFLX, BAC, INTC across three hedge fund / asset management accounts.
 
+### Live Data Feeds
+
+After loading seed data, the demo container starts streaming **real-time data** from public APIs:
+
+| Feed | API | Key Required? | Polling Interval | IMap |
+|------|-----|---------------|-----------------|------|
+| **Crypto** | [CoinGecko](https://www.coingecko.com/en/api) | No | 30 seconds | `crypto` |
+| **Stocks** | [Alpha Vantage](https://www.alphavantage.co/support/#api-key) | Yes (free) | 5 minutes | `stocks` |
+| **News** | [NewsAPI](https://newsapi.org/register) | Yes (free) | 10 minutes | `news` |
+| **Insights** | Jet pipeline (internal) | No | 5 minutes | `market-insights` |
+
+**Crypto works out of the box** — no API keys needed. Stocks and news are optional enrichments.
+
+To enable all feeds, pass your free API keys:
+
+```bash
+ALPHA_VANTAGE_API_KEY=your_key NEWS_API_KEY=your_key docker compose up
+```
+
+**Get free API keys:**
+- Alpha Vantage: [alphavantage.co/support/#api-key](https://www.alphavantage.co/support/#api-key) (25 requests/day)
+- NewsAPI: [newsapi.org/register](https://newsapi.org/register) (100 requests/day)
+
+#### Live data prompts for Claude
+
+```
+"What's Bitcoin trading at right now?"
+"Show me all crypto prices"
+"What are the latest market headlines?"
+"How is the market sentiment today?"
+"Compare crypto vs stock performance"
+"Who are the biggest movers right now?"
+"Give me a full market briefing"
+```
+
 ### Connect Claude Desktop (Docker + SSE)
 
-The easiest way to connect Claude Desktop to the Docker setup is via SSE transport:
+The easiest way to connect Claude Desktop to the Docker setup is via SSE transport.
+Claude Desktop only speaks stdio to child processes, so we use `mcp-remote` as a
+stdio-to-SSE bridge (requires [Node.js](https://nodejs.org/) 18+).
 
 **Step 1:** Start the stack in SSE mode:
 ```bash
+# Linux / macOS
 HAZELCAST_MCP_TRANSPORT=sse docker compose up
+
+# Windows PowerShell
+$env:HAZELCAST_MCP_TRANSPORT="sse"; docker compose up
 ```
 
-**Step 2:** Add to your Claude Desktop config (`claude_desktop_config.json`):
+**Step 2:** Add to your Claude Desktop config:
+
+| OS | Config file path |
+|----|-----------------|
+| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
+
 ```json
 {
   "mcpServers": {
     "hazelcast": {
-      "url": "http://localhost:3000/sse"
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "http://localhost:3000/sse"]
     }
   }
 }
 ```
 
-**Step 3:** Restart Claude Desktop. You should see "hazelcast" in your MCP servers list.
+> **Note:** `mcp-remote` is auto-installed on first run via `npx -y`. If you already
+> have other entries in `mcpServers`, merge the `"hazelcast"` key into the existing object.
+
+**Step 3:** Restart Claude Desktop (fully quit and reopen). Look for the hammer (🔨) icon
+in the chat input — click it to verify the Hazelcast tools are listed.
+
+**Troubleshooting:**
+- **No hammer icon?** Make sure Docker is running and the MCP server container is healthy
+  (`docker compose ps`). The SSE endpoint must be available _before_ Claude Desktop starts.
+- **JSON parse error on launch?** Validate your config at [jsonlint.com](https://jsonlint.com/).
+  A common mistake is a missing comma between `"preferences"` and `"mcpServers"` blocks.
+- **Windows `HAZELCAST_MCP_TRANSPORT=sse` not recognized?** PowerShell requires the
+  `$env:VAR="value"; command` syntax shown above. The Unix `VAR=value command` form
+  only works in bash/zsh.
 
 ### Try these prompts in Claude
 
@@ -91,17 +152,23 @@ If you prefer stdio transport, you can use `docker exec`:
 To expose the MCP server over HTTP with Server-Sent Events:
 
 ```bash
+# Linux / macOS
 HAZELCAST_MCP_TRANSPORT=sse docker compose up
+
+# Windows PowerShell
+$env:HAZELCAST_MCP_TRANSPORT="sse"; docker compose up
 ```
 
-The SSE endpoint will be available at `http://localhost:3000/sse`. Any MCP client that supports SSE can connect to this URL.
+The SSE endpoint will be available at `http://localhost:3000/sse` with the message
+endpoint at `http://localhost:3000/mcp/message`. Any MCP client that supports SSE
+can connect directly. For Claude Desktop, use the `mcp-remote` bridge as described above.
 
 ## Features
 
 **Tools** (15 operations AI agents can invoke):
 - **IMap CRUD**: `map_get`, `map_put`, `map_delete`, `map_get_all`, `map_put_all`, `map_size`, `map_keys`, `map_values`, `map_contains_key`, `map_clear`
 - **SQL**: `sql_execute` — SELECT, INSERT, UPDATE, DELETE with parameterized queries and pagination
-- **VectorCollection**: `vector_search`, `vector_put`, `vector_get`, `vector_delete` (requires Hazelcast 5.7+)
+- **VectorCollection**: `vector_search`, `vector_put`, `vector_get`, `vector_delete`
 
 **Resources** (read-only cluster context):
 - `hazelcast://cluster/info` — Cluster name, version, member list
@@ -121,7 +188,7 @@ The SSE endpoint will be available at `http://localhost:3000/sse`. Any MCP clien
 
 ### Prerequisites
 - Java 17+
-- A running Hazelcast cluster (5.5+)
+- A running Hazelcast cluster (5.5+ / 5.6 recommended)
 
 ### Build
 ```bash
@@ -195,20 +262,30 @@ Add to `.cursor/mcp.json`:
 For network-accessible MCP via SSE, start the server with SSE transport:
 
 ```bash
+# Linux / macOS
 HAZELCAST_MCP_TRANSPORT=sse java -jar hazelcast-mcp-server-1.0.0-SNAPSHOT.jar
+
+# Windows PowerShell
+$env:HAZELCAST_MCP_TRANSPORT="sse"; java -jar hazelcast-mcp-server-1.0.0-SNAPSHOT.jar
 ```
 
-Then configure Claude Desktop to connect via SSE:
+Then configure Claude Desktop to connect via the `mcp-remote` bridge (requires Node.js 18+):
 
 ```json
 {
   "mcpServers": {
     "hazelcast": {
-      "url": "http://localhost:3000/sse"
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "http://localhost:3000/sse"]
     }
   }
 }
 ```
+
+> **Why `mcp-remote`?** Claude Desktop communicates with MCP servers over stdio only.
+> The `mcp-remote` package bridges stdio↔SSE so Claude Desktop can reach network-based
+> MCP servers. Any MCP client that natively supports SSE can connect directly to
+> `http://localhost:3000/sse` without the bridge.
 
 ## Configuration Reference
 
@@ -223,6 +300,8 @@ Then configure Claude Desktop to connect via SSE:
 | `HAZELCAST_MCP_SECURITY_TOKEN` | Token-based auth | (empty) |
 | `HAZELCAST_MCP_TRANSPORT` | Transport type (`stdio` or `sse`) | `stdio` |
 | `HAZELCAST_MCP_ACCESS_MODE` | Access control mode (`all`, `allowlist`, `denylist`) | `all` |
+| `ALPHA_VANTAGE_API_KEY` | Alpha Vantage API key for live stock data | (disabled) |
+| `NEWS_API_KEY` | NewsAPI key for live financial news | (disabled) |
 
 ### Access Control
 
@@ -262,10 +341,11 @@ Hazelcast Client MCP Server
 
 - **Language**: Java 17+
 - **MCP SDK**: [MCP Java SDK](https://github.com/modelcontextprotocol/java-sdk) v0.12.1
-- **Hazelcast Client**: Hazelcast 5.5+
-- **Transport**: stdio (local), SSE via embedded Jetty 11
-- **Build**: Maven, publishes fat JAR
-- **Docker**: Multi-stage build, Compose quickstart with demo data
+- **Hazelcast Client**: Hazelcast 5.6+ (compatible with 5.5+)
+- **Transport**: stdio (local), SSE via embedded Jetty 12 (Jakarta Servlet 6.1)
+- **Build**: Maven, publishes fat JAR via `maven-shade-plugin`
+- **Docker**: Multi-stage build (`eclipse-temurin:17`), Compose quickstart with demo data
+- **Live Data**: CoinGecko, Alpha Vantage, NewsAPI integration with Hazelcast Jet
 
 ## License
 

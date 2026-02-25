@@ -14,6 +14,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -25,6 +26,9 @@ import java.util.concurrent.ThreadLocalRandom;
  *
  * <p>Creates four IMaps: trades, positions, market-data, risk-metrics
  * and submits two Jet batch jobs for P&L recalculation and risk aggregation.</p>
+ *
+ * <p>After loading seed data, starts {@link LiveDataFeedManager} to continuously
+ * stream live crypto, stock, and news data from public APIs.</p>
  *
  * <p>Usage: java -cp hazelcast-mcp-server.jar com.hazelcast.mcp.demo.DemoDataLoader</p>
  */
@@ -73,14 +77,24 @@ public class DemoDataLoader {
         logger.info("Connected to Hazelcast cluster");
 
         try {
+            // Phase 1: Load static seed data for immediate querying
             loadMarketData(client);
             loadTrades(client);
             loadPositions(client);
             loadRiskMetrics(client);
             submitJetJobs(client);
 
-            logger.info("=== Demo data loading complete! ===");
+            logger.info("=== Static demo data loaded ===");
             printSummary(client);
+
+            // Signal readiness for Docker healthcheck
+            try { new File("/tmp/feeds-ready").createNewFile(); } catch (Exception ignored) {}
+
+            // Phase 2: Start live data feeds (blocks forever)
+            logger.info("");
+            LiveDataFeedManager feedManager = new LiveDataFeedManager(client);
+            feedManager.startAndBlock();
+
         } catch (Exception e) {
             logger.error("Failed to load demo data: {}", e.getMessage(), e);
             System.exit(1);
@@ -303,101 +317,38 @@ public class DemoDataLoader {
     }
 
     // ---- Jet Jobs ----
+    // NOTE: Jet pipelines are serialized and shipped to the Hazelcast server.
+    // All functions are defined in JetFunctions (a standalone Serializable class)
+    // and uploaded via JobConfig.addClass() so the server can deserialize them.
 
     private static void submitJetJobs(HazelcastInstance client) {
         JetService jet = client.getJet();
         logger.info("Submitting Jet batch jobs...");
 
+        // Upload JetFunctions class to the server so it can deserialize the lambdas
+        com.hazelcast.jet.config.JobConfig jobConfig = new com.hazelcast.jet.config.JobConfig();
+        jobConfig.addClass(JetFunctions.class);
+
         try {
-            // Job 1: P&L Recalculation — reads positions, enriches with market-data, recomputes P&L
+            // Job 1: P&L Recalculation
             Pipeline pnlPipeline = Pipeline.create();
             pnlPipeline.readFrom(Sources.<String, HazelcastJsonValue>map("positions"))
-                    .map(entry -> {
-                        try {
-                            com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
-                            var pos = om.readTree(entry.getValue().toString());
-                            String symbol = pos.get("symbol").asText();
-                            String account = pos.get("account").asText();
-                            int qty = pos.get("quantity").asInt();
-                            double avgCost = pos.get("avgCost").asDouble();
-                            // Recalculate with a slight price movement for demo
-                            double currentPrice = avgCost * (1 + (Math.random() - 0.5) * 0.01);
-                            double marketValue = Math.round(qty * currentPrice * 100.0) / 100.0;
-                            double pnl = Math.round((currentPrice - avgCost) * qty * 100.0) / 100.0;
-
-                            com.fasterxml.jackson.databind.node.ObjectNode updated = om.createObjectNode();
-                            updated.put("symbol", symbol);
-                            updated.put("account", account);
-                            updated.put("quantity", qty);
-                            updated.put("side", qty > 0 ? "LONG" : "SHORT");
-                            updated.put("avgCost", avgCost);
-                            updated.put("marketPrice", Math.round(currentPrice * 100.0) / 100.0);
-                            updated.put("marketValue", marketValue);
-                            updated.put("unrealizedPnL", pnl);
-                            updated.put("unrealizedPnLPct", Math.round((pnl / (Math.abs(qty) * avgCost)) * 10000.0) / 100.0);
-                            updated.put("currency", "USD");
-                            updated.put("lastUpdated", System.currentTimeMillis());
-
-                            return Map.entry(account + "-" + symbol,
-                                    new HazelcastJsonValue(updated.toString()));
-                        } catch (Exception e) {
-                            return entry;
-                        }
-                    })
+                    .map(JetFunctions.RECALC_PNL)
                     .writeTo(Sinks.map("positions"));
 
-            jet.newJob(pnlPipeline).join();
+            jet.newJob(pnlPipeline, jobConfig).join();
             logger.info("  Jet job 'pnl-recalculation' completed");
 
-            // Job 2: Risk Aggregation — reads positions, groups by account, computes portfolio risk
+            // Job 2: Risk Aggregation
             Pipeline riskPipeline = Pipeline.create();
             riskPipeline.readFrom(Sources.<String, HazelcastJsonValue>map("positions"))
-                    .map(entry -> {
-                        try {
-                            com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
-                            var pos = om.readTree(entry.getValue().toString());
-                            String account = pos.get("account").asText();
-                            double mv = Math.abs(pos.get("marketValue").asDouble());
-                            double pnl = pos.get("unrealizedPnL").asDouble();
-                            return Map.entry(account, new double[]{mv, pnl, 1});
-                        } catch (Exception e) {
-                            return Map.entry("UNKNOWN", new double[]{0, 0, 0});
-                        }
-                    })
-                    .groupingKey(entry -> entry.getKey())
-                    .aggregate(com.hazelcast.jet.aggregate.AggregateOperations.<Map.Entry<String, double[]>, double[]>reducing(
-                            new double[]{0, 0, 0},
-                            (Map.Entry<String, double[]> e) -> e.getValue(),
-                            (a, b) -> new double[]{a[0] + b[0], a[1] + b[1], a[2] + b[2]},
-                            (a, b) -> new double[]{a[0] - b[0], a[1] - b[1], a[2] - b[2]}
-                    ))
-                    .map(entry -> {
-                        String account = entry.getKey();
-                        double[] agg = entry.getValue();
-                        double totalExposure = Math.round(agg[0] * 100.0) / 100.0;
-                        double totalPnL = Math.round(agg[1] * 100.0) / 100.0;
-                        int count = (int) agg[2];
-
-                        com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
-                        com.fasterxml.jackson.databind.node.ObjectNode node = om.createObjectNode();
-                        node.put("account", account);
-                        node.put("totalExposure", totalExposure);
-                        node.put("netExposure", Math.round(totalExposure * 0.6 * 100.0) / 100.0);
-                        node.put("totalPnL", totalPnL);
-                        node.put("positionCount", count);
-                        node.put("var95", Math.round(totalExposure * 0.10 * 100.0) / 100.0);
-                        node.put("var99", Math.round(totalExposure * 0.14 * 100.0) / 100.0);
-                        node.put("sharpeRatio", Math.round(Math.random() * 200.0) / 100.0);
-                        node.put("maxDrawdown", Math.round(Math.random() * 15.0 + 5.0) / 100.0);
-                        node.put("beta", Math.round((0.7 + Math.random() * 0.7) * 100.0) / 100.0);
-                        node.put("currency", "USD");
-                        node.put("calculatedAt", System.currentTimeMillis());
-
-                        return Map.entry(account, new HazelcastJsonValue(node.toString()));
-                    })
+                    .map(JetFunctions.EXTRACT_FOR_RISK)
+                    .groupingKey(JetFunctions.ACCOUNT_KEY)
+                    .aggregate(JetFunctions.riskReducer())
+                    .map(JetFunctions.FORMAT_RISK)
                     .writeTo(Sinks.map("risk-metrics"));
 
-            jet.newJob(riskPipeline).join();
+            jet.newJob(riskPipeline, jobConfig).join();
             logger.info("  Jet job 'risk-aggregation' completed");
 
         } catch (Exception e) {
